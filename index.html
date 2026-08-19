@@ -369,8 +369,7 @@
   </div>
 
   <div class="view" id="view-language">
-    <div class="section-head"><h2>Performance by language</h2><p>Hindi, Kannada, Tamil and Telugu compared.</p>
-      <span class="spacer"></span><span id="detail-language"></span></div>
+    <div class="section-head"><h2>Performance by language</h2><p>Hindi, Kannada, Tamil and Telugu compared.</p></div>
     <div class="legend"><span><span class="dot good"></span>Above the overall Unique CTR</span><span><span class="dot bad"></span>Below it</span></div>
     <div class="table-wrap"><table id="tbl-language"></table></div>
     <div style="height:16px"></div>
@@ -378,8 +377,7 @@
   </div>
 
   <div class="view" id="view-category">
-    <div class="section-head"><h2>Performance by content category</h2><p>Which topics people actually tap.</p>
-      <span class="spacer"></span><span id="detail-category"></span></div>
+    <div class="section-head"><h2>Performance by content category</h2><p>Which topics people actually tap.</p></div>
     <div class="legend">
       <span><span class="dot good"></span>Above the overall Unique CTR</span>
       <span><span class="dot bad"></span>Below it</span>
@@ -391,8 +389,7 @@
   </div>
 
   <div class="view" id="view-segment">
-    <div class="section-head"><h2>Performance by audience</h2><p>Who you sent it to.</p>
-      <span class="spacer"></span><span id="detail-segment"></span></div>
+    <div class="section-head"><h2>Performance by audience</h2><p>Who you sent it to.</p></div>
     <div class="legend">
       <span><span class="dot good"></span>Above the overall Unique CTR</span>
       <span><span class="dot bad"></span>Below it</span>
@@ -404,8 +401,7 @@
   </div>
 
   <div class="view" id="view-time">
-    <div class="section-head"><h2>Performance by send hour</h2><p>What time of day works best.</p>
-      <span class="spacer"></span><span id="detail-time"></span></div>
+    <div class="section-head"><h2>Performance by send hour</h2><p>What time of day works best.</p></div>
     <div class="legend">
       <span><span class="dot good"></span>Above the overall Unique CTR</span>
       <span><span class="dot bad"></span>Below it</span>
@@ -1207,41 +1203,24 @@ function trendSeries(rows){
 /* ==========================================================================
    11. TABLES
    ========================================================================== */
-/* `core: true` columns are the ones shown in Simple view */
 const COLS = [
-  {key:'__label__',          label:'',                     isLabel:true,       core:true},
-  {key:'Campaigns',          label:'Campaigns',            dec:0,              core:true},
-  {key:'Sent',               label:'Sent',                 dec:0,              core:true},
-  {key:'Delivery_Rate_',     label:'Delivered',            dec:2, isPct:true,  core:true},
-  {key:'Impression_Rate_',   label:'Reached screen',       dec:2, isPct:true,  core:true},
-  {key:'Impressions',        label:'Times shown',          dec:0},
-  {key:'Unique_Impressions', label:'People who saw',       dec:0},
-  {key:'Clicks',             label:'Clicks',               dec:0},
-  {key:'Unique_Clicks',      label:'People who tapped',    dec:0,              core:true},
-  {key:'Unique_CTR_',        label:'Unique CTR',           dec:3, isPct:true, bar:true, core:true},
-  {key:'CTR_',               label:'CTR',                  dec:3, isPct:true},
-  {key:'CT_Converted_Users', label:'Converted (tapped)',   dec:0,              core:true},
-  {key:'VT_Converted_Users', label:'Converted (no tap)',   dec:0},
-  {key:'CT_Conversion_',     label:'Tap → convert',        dec:2, isPct:true},
-  {key:'Conv_Per_Sent_',     label:'Converted per send',   dec:3, isPct:true,  core:true},
-  {key:'VT_Conversion_',     label:'Saw → convert',        dec:4, isPct:true},
+  {key:'__label__',          label:'',              isLabel:true},
+  {key:'Campaigns',          label:'Campaigns',     dec:0},
+  {key:'Sent',               label:'Sent',          dec:0},
+  {key:'Delivery_Rate_',     label:'Delivery %',    dec:2, isPct:true},
+  {key:'Impression_Rate_',   label:'Impr %',        dec:2, isPct:true},
+  {key:'Impressions',        label:'Impressions',   dec:0},
+  {key:'Unique_Impressions', label:'Uniq Impr',     dec:0},
+  {key:'Clicks',             label:'Clicks',        dec:0},
+  {key:'Unique_Clicks',      label:'Uniq Clicks',   dec:0},
+  {key:'Unique_CTR_',        label:'Uniq CTR %',    dec:3, isPct:true, bar:true},
+  {key:'CTR_',               label:'CTR %',         dec:3, isPct:true},
+  {key:'CT_Converted_Users', label:'CT Conv Users', dec:0},
+  {key:'VT_Converted_Users', label:'VT Conv Users', dec:0},
+  {key:'CT_Conversion_',     label:'CT Conv %',     dec:2, isPct:true},
+  {key:'Conv_Per_Sent_',     label:'Conv/Sent %',   dec:3, isPct:true},
+  {key:'VT_Conversion_',     label:'VT Conv %',     dec:4, isPct:true},
 ];
-
-/* Simple / Detailed is remembered across tabs and reloads */
-let TABLE_DETAIL = (function(){ try{ return localStorage.getItem('gyantv-table-detail') === '1'; }catch(e){ return false; } })();
-function activeCols(){ return TABLE_DETAIL ? COLS : COLS.filter(c => c.core); }
-function detailToggleHtml(){
-  return '<span class="seg" style="font-size:12px">' +
-    '<button type="button" class="detailBtn" data-detail="0" aria-pressed="' + (!TABLE_DETAIL) + '">Simple</button>' +
-    '<button type="button" class="detailBtn" data-detail="1" aria-pressed="' + (!!TABLE_DETAIL) + '">All columns</button></span>';
-}
-document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('.detailBtn');
-  if(!b) return;
-  TABLE_DETAIL = b.getAttribute('data-detail') === '1';
-  try{ localStorage.setItem('gyantv-table-detail', TABLE_DETAIL ? '1' : '0'); }catch(err){}
-  renderAll();
-});
 
 function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
   opts = opts || {};
@@ -1256,7 +1235,7 @@ function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
       return sortDir * ((av||0) - (bv||0));
     });
     let html = '<thead><tr>';
-    activeCols().forEach(c => {
+    COLS.forEach(c => {
       const h = METRIC_HELP[c.key];
       html += '<th class="' + (c.key === sortKey ? 'sorted' : '') + '" data-key="' + c.key + '"' +
               (h ? ' data-tip-key="' + c.key + '"' : '') + '>' +
@@ -1266,7 +1245,7 @@ function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
     html += '</tr></thead><tbody>';
     sorted.forEach(r => {
       html += '<tr>';
-      activeCols().forEach(c => {
+      COLS.forEach(c => {
         if(c.isLabel){ html += '<td>' + esc(r.label) + '</td>'; }
         else if(c.bar){
           const v = r.metrics[c.key];
@@ -1283,7 +1262,7 @@ function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
     html += '</tbody>';
     if(totalsRow){
       html += '<tfoot><tr>';
-      activeCols().forEach(c => {
+      COLS.forEach(c => {
         if(c.isLabel) html += '<td>Total / blended</td>';
         else if(c.isPct) html += '<td>' + pct(totalsRow[c.key], c.dec) + '</td>';
         else html += '<td>' + fmt(totalsRow[c.key], c.dec) + '</td>';
@@ -1591,11 +1570,6 @@ function renderAll(){
   renderCategory(o);
   renderSegment(o);
   renderTime(o);
-
-  ['language','category','segment','time'].forEach(v => {
-    const el = document.getElementById('detail-' + v);
-    if(el) el.innerHTML = detailToggleHtml();
-  });
 
   const gran = getGranularity();
   const sub = document.getElementById('trendSub');
