@@ -348,7 +348,7 @@
   </div>
 
   <div class="view active" id="view-overall">
-    <div class="section"><div class="hero" id="kpi-hero"></div></div>
+    <div class="section"><div class="kpis" id="kpi-hero"></div></div>
     <div class="section"><div class="kpis" id="kpi-delivery"></div></div>
     <div class="section"><div class="kpis" id="kpi-engagement"></div></div>
     <div class="section">
@@ -1346,30 +1346,25 @@ function tile(key, label, val, hint, cls, big){
 function renderOverall(){
   const rows = filterRows();
   const o = aggregate(rows);
-  const convertedUsers = o.CT_Converted_Users + o.VT_Converted_Users;
-
   document.getElementById('kpi-hero').innerHTML =
-    tile('Sent', 'Notifications sent', fmt(o.Sent), 'Across ' + fmt(o.Campaigns) + ' campaigns', 'brand', true) +
-    tile('Unique_CTR_', 'Unique CTR', pct(o.Unique_CTR_, 3),
-         'Of the people who saw it, this many tapped', 'warn', true) +
-    tile('Conv_Per_Sent_', 'Converted users', fmt(convertedUsers),
-         pct(o.Conv_Per_Sent_, 3) + ' of everything sent', 'pos', true);
+    tile('Campaigns',          'Campaigns',          fmt(o.Campaigns)) +
+    tile('Sent',               'Sent',               fmt(o.Sent), '', 'brand') +
+    tile('Impressions',        'Impressions',        fmt(o.Impressions)) +
+    tile('Unique_Impressions', 'Unique Impressions', fmt(o.Unique_Impressions)) +
+    tile('Unique_Clicks',      'Unique Clicks',      fmt(o.Unique_Clicks));
 
   document.getElementById('kpi-delivery').innerHTML =
-    tile('Delivery_Rate_', 'Delivery rate', pct(o.Delivery_Rate_), 'Sends that did not fail') +
-    tile('Impression_Rate_', 'Reached a screen', pct(o.Impression_Rate_), 'Sends that were actually shown') +
-    tile('Impressions', 'Times shown', fmt(o.Impressions), 'Including repeats') +
-    tile('Unique_Impressions', 'People who saw it', fmt(o.Unique_Impressions), 'Your real reach') +
-    tile('Campaigns', 'Campaigns', fmt(o.Campaigns), 'In this selection');
+    tile('Delivery_Rate_',   'Delivery Rate',   pct(o.Delivery_Rate_), '', 'brand') +
+    tile('Impression_Rate_', 'Impression Rate', pct(o.Impression_Rate_)) +
+    '<div class="tile"><div class="lbl" data-tip-key="Unique_CTR_">Unique CTR / CTR</div>' +
+      '<div class="val warn">' + pct(o.Unique_CTR_, 3) + ' <small>/ ' + pct(o.CTR_, 3) + '</small></div></div>' +
+    tile('CT_Conversion_', 'CT Conversion %', pct(o.CT_Conversion_, 2), '', 'pos') +
+    tile('Conv_Per_Sent_', 'Conv / Sent %',   pct(o.Conv_Per_Sent_, 3), '', 'pos');
 
   document.getElementById('kpi-engagement').innerHTML =
-    tile('Unique_Clicks', 'People who tapped', fmt(o.Unique_Clicks), 'Distinct users') +
-    tile('CTR_', 'CTR', pct(o.CTR_, 3), 'Clicks ÷ sent') +
-    tile('CT_Converted_Users', 'Converted after tapping', fmt(o.CT_Converted_Users),
-         pct(o.CT_Conversion_, 2) + ' of people who tapped') +
-    tile('VT_Converted_Users', 'Converted without tapping', fmt(o.VT_Converted_Users),
-         'Saw it, did not tap, converted anyway') +
-    tile('Conv_Per_Sent_', 'Converted per send', pct(o.Conv_Per_Sent_, 3), 'The end-to-end number');
+    tile('CT_Converted_Users', 'CT Converted Users', fmt(o.CT_Converted_Users)) +
+    tile('VT_Converted_Users', 'VT Converted Users', fmt(o.VT_Converted_Users)) +
+    tile('VT_Conversion_',     'VT Conversion %',    pct(o.VT_Conversion_, 4));
 
   // ---- trend charts ----
   const t = trendSeries(rows);
