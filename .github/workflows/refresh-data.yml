@@ -1,0 +1,56 @@
+# Alternative to the in-dashboard Publish button, for people who would rather
+# not hold a token: drop a MoEngage CSV into the `incoming/` folder on
+# github.com and this converts it to data.js, commits it, and deletes the CSV.
+#
+# Give someone "Write" access to the repo and they can do this from the browser:
+#   Add file -> Upload files -> drag the CSV into incoming/ -> Commit
+name: Refresh dashboard data
+
+on:
+  push:
+    paths:
+      - 'incoming/*.csv'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Find the newest CSV
+        id: find
+        run: |
+          csv=$(ls -t incoming/*.csv 2>/dev/null | head -1)
+          if [ -z "$csv" ]; then
+            echo "No CSV in incoming/ — nothing to do."
+            echo "csv=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Using $csv"
+            echo "csv=$csv" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Convert to data.js
+        if: steps.find.outputs.csv != ''
+        run: node tools/csv-to-data.mjs "${{ steps.find.outputs.csv }}"
+
+      - name: Commit data.js and remove the raw CSV
+        if: steps.find.outputs.csv != ''
+        run: |
+          rm -f incoming/*.csv
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.js incoming
+          if git diff --staged --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "Data refresh from $(basename '${{ steps.find.outputs.csv }}')"
+            git push
+          fi

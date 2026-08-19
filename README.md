@@ -13,40 +13,73 @@ browser — no server, no database, nothing is uploaded anywhere.
 | `data.js` | **The published dataset.** This is what everyone who opens the URL sees. |
 | `tools/csv-to-data.mjs` | Converts a MoEngage CSV export into `data.js`. |
 
-## How the data works
+## Viewers vs admins
 
-There are three possible data sources, in priority order:
+**By default the dashboard is read-only.** Someone opening the link sees the
+published data and nothing else — no *Upload new CSV*, no *Download data.js*,
+no *Reset*. They cannot change what anyone sees.
 
-1. **Your own saved upload** — when you click *Upload new CSV*, the file is
-   parsed in your browser and saved in that browser's local storage. It
-   survives a refresh, but **only you can see it**. A banner says so.
-2. **`data.js`** — the published dataset. This is what a teammate opening the
-   URL gets. Committing a new `data.js` is what updates the dashboard for
-   everybody.
-3. Nothing — the page asks you to upload a CSV.
+**Admin mode** appears only for someone holding a GitHub token for this repo.
+The token is the access control: it lives in that person's own browser
+(localStorage) and is never in this repo or in `index.html`. Adding
+`?admin=1` to the URL reveals the admin box, but without a valid token the
+Publish button just refuses.
 
-*Reset to published data* clears your local upload and goes back to `data.js`.
+### Setting someone up as an admin
+
+1. That person signs in to GitHub and goes to
+   **Settings → Developer settings → Personal access tokens → Fine-grained tokens
+   → Generate new token**.
+2. **Repository access:** Only select repositories → this repo.
+   **Permissions:** Repository permissions → **Contents: Read and write**.
+   Nothing else. Set an expiry (90 days is sensible).
+3. They open `https://vinaynalamasa.github.io/push-dashboard/?admin=1`, paste
+   the token, click **Save token**. From then on the admin box appears for them
+   on the plain URL too.
+4. *Sign out* in the admin box wipes the token from that browser.
+
+To revoke someone: delete their token on github.com. It stops working
+immediately, everywhere.
 
 ## Updating the data for everyone
 
-### Option A — no command line (easiest)
+### Option A — admin Publish button (one click)
 
-1. Open the dashboard, click **Upload new CSV**, pick the new MoEngage export.
-2. Check the numbers look right.
-3. Click **Download data.js**. Your browser saves a file called `data.js`.
-4. Move that file into this repo folder, replacing the existing `data.js`.
-5. Open GitHub Desktop → it shows `data.js` as changed → write a summary
-   ("Data refresh <month>") → **Commit to main** → **Push origin**.
-6. Wait ~1 minute, then hard-refresh the live URL (`Ctrl` + `Shift` + `R`).
+1. Open the dashboard as an admin, click **Upload new CSV**, pick the export.
+2. Check the numbers.
+3. Click **Publish loaded data to everyone**. It commits `data.js` to the repo
+   over the GitHub API.
+4. GitHub Pages rebuilds in about a minute. Hard-refresh (`Ctrl + Shift + R`).
 
-### Option B — command line
+### Option B — upload the CSV on github.com (no token)
+
+Give the person **Write** access to the repo (Settings → Collaborators), then:
+
+1. On github.com, open the `incoming/` folder → **Add file → Upload files**.
+2. Drag the MoEngage CSV in, commit it.
+3. The **Refresh dashboard data** Action converts it to `data.js`, commits
+   that, and deletes the raw CSV. Nothing else to do.
+
+### Option C — command line
 
 ```bash
 node tools/csv-to-data.mjs "C:\path\to\Report_PUSH_20260818.csv"
 ```
 
-It prints the column mapping it detected, writes `data.js`, then commit and
-push as above.
+It prints the column mapping it detected and writes `data.js`; commit and push
+with GitHub Desktop.
+
+### Option D — download and commit by hand
+
+Admin mode also has **Download data.js**. Save it, drop it into this folder
+replacing the old one, then commit and push in GitHub Desktop.
+
+## Local uploads (admins only)
+
+An admin's upload is also saved in their own browser so it survives a refresh,
+with a banner saying it is not yet public. *Reset to published data* clears it.
+Publishing clears it too, so the admin ends up seeing exactly what everyone
+else sees.
 
 ## Campaign types
 

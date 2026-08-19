@@ -73,6 +73,22 @@
   select.filter:disabled{opacity:.4;cursor:not-allowed;}
   .banner{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:14px;display:none;line-height:1.6;}
   .banner.show{display:block;}
+  [hidden]{display:none !important;}
+
+  /* ---- admin panel ---- */
+  .admin{background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:18px;}
+  .admin-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .admin-title{font-size:12px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:.6px;}
+  .admin-head .reset-btn{margin-left:auto;}
+  .admin-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+  .admin-row label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .admin-row .sep{color:var(--muted2);}
+  .admin input[type=password],.admin input[type=text]{background:#1A2236;color:var(--text);border:1px solid var(--border);
+    border-radius:4px;padding:7px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;min-width:150px;flex:1 1 200px;max-width:460px;}
+  .admin-note{font-size:11px;color:var(--muted);}
+  .admin-note code{color:var(--gold);}
+  .admin-status{font-size:11.5px;color:var(--muted);font-family:ui-monospace,Menlo,Consolas,monospace;min-height:16px;line-height:1.6;}
+  .admin-status.ok{color:var(--accent);} .admin-status.err{color:var(--warn);}
   .banner.error{background:var(--warn-dim);border-color:var(--warn);color:#FFC9C1;}
   .banner details{margin-top:6px;}
   .banner summary{cursor:pointer;opacity:.85;}
@@ -142,11 +158,36 @@
         <option value="month">Monthly</option>
       </select>
     </div>
-    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Upload new CSV</button>
+    <button class="upload-btn" id="uploadBtn" hidden>Upload new CSV</button>
     <input type="file" id="fileInput" accept=".csv,text/csv">
-    <button class="reset-btn" id="publishBtn" title="Save the data currently loaded as data.js, so you can commit it and everyone sees it">Download data.js</button>
-    <button class="reset-btn" id="resetBtn">Reset to published data</button>
+    <button class="reset-btn" id="publishBtn" hidden title="Save the data currently loaded as data.js so you can commit it by hand">Download data.js</button>
+    <button class="reset-btn" id="resetBtn" hidden>Reset to published data</button>
     <div class="status" id="statusLine"></div>
+  </div>
+
+  <div class="admin" id="adminPanel" hidden>
+    <div class="admin-head">
+      <span class="admin-title">Admin — publish data for everyone</span>
+      <button class="reset-btn" id="adminForget" title="Remove the saved token from this browser">Sign out</button>
+    </div>
+    <div class="admin-row" id="adminAuth">
+      <label>GitHub token</label>
+      <input type="password" id="ghToken" placeholder="github_pat_… (fine-grained, Contents: Read and write)" autocomplete="off" spellcheck="false">
+      <button class="upload-btn" id="ghSave">Save token</button>
+    </div>
+    <div class="admin-row" id="adminRepo">
+      <label>Repo</label>
+      <input type="text" id="ghOwner" placeholder="owner" autocomplete="off" spellcheck="false">
+      <span class="sep">/</span>
+      <input type="text" id="ghRepo" placeholder="repo" autocomplete="off" spellcheck="false">
+      <label>Branch</label>
+      <input type="text" id="ghBranch" placeholder="main" autocomplete="off" spellcheck="false" style="max-width:110px">
+    </div>
+    <div class="admin-row">
+      <button class="upload-btn" id="ghPublish">Publish loaded data to everyone</button>
+      <span class="admin-note">Commits <code>data.js</code> to the repo. Everyone with the link sees it in about a minute.</span>
+    </div>
+    <div class="admin-status" id="ghStatus"></div>
   </div>
 
   <div class="tabs" id="tabs">
@@ -1359,20 +1400,176 @@ function publishedDataset(){
           label:'Published data' + (d.generated ? ' · ' + d.generated : '')};
 }
 
+function latestSendDate(){
+  let latest = '';
+  for(const r of PARSED){ if(r.date && r.date > latest) latest = r.date; }
+  return latest;
+}
+
+function buildDataJsText(){
+  const stamp = latestSendDate();
+  return '/* GyanTV push dashboard — generated dataset. DO NOT EDIT BY HAND.\n' +
+         '   Source     : ' + String(CURRENT.label).replace(/\*\//g,'') + '\n' +
+         '   Campaigns  : ' + CURRENT.rows.length + '\n' +
+         '   Latest send: ' + (stamp || 'unknown') + ' */\n' +
+         'window.PUSH_DATA = ' + JSON.stringify({
+           generated: stamp, source: CURRENT.label, cols: CURRENT.cols, rows: CURRENT.rows
+         }) + ';\n';
+}
+
 function downloadDataJs(){
   if(!CURRENT){ alert('Load a CSV first.'); return; }
-  const stamp = document.getElementById('endDate').value || '';
-  const js = '/* GyanTV push dashboard — generated dataset.\n' +
-             '   Source: ' + String(CURRENT.label).replace(/\*\//g,'') + '\n' +
-             '   ' + CURRENT.rows.length + ' campaigns. Replace this file and commit to update the live dashboard. */\n' +
-             'window.PUSH_DATA = ' + JSON.stringify({
-               generated: stamp, source: CURRENT.label, cols: CURRENT.cols, rows: CURRENT.rows
-             }) + ';\n';
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([js], {type:'application/javascript'}));
+  a.href = URL.createObjectURL(new Blob([buildDataJsText()], {type:'application/javascript'}));
   a.download = 'data.js';
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* ==========================================================================
+   14c. ADMIN MODE — publish data.js straight to GitHub
+        The GitHub token IS the access control. Without one you cannot write
+        to the repo, so a plain viewer sees a read-only dashboard: no upload,
+        no download, no reset. The token lives only in the admin's own browser
+        (localStorage) and is never part of this file or the repo.
+   ========================================================================== */
+const GH_KEY = 'gyantv-push-dashboard-gh-v1';
+const GH_DEFAULTS = {owner:'vinaynalamasa', repo:'push-dashboard', branch:'main', path:'data.js'};
+
+function ghRead(){
+  try{ return Object.assign({}, GH_DEFAULTS, JSON.parse(localStorage.getItem(GH_KEY) || '{}')); }
+  catch(e){ return Object.assign({}, GH_DEFAULTS); }
+}
+function ghWrite(o){ try{ localStorage.setItem(GH_KEY, JSON.stringify(o)); }catch(e){} }
+function ghClear(){ try{ localStorage.removeItem(GH_KEY); }catch(e){} }
+function isAdmin(){
+  if(/[?&]admin=1\b/.test(location.search)) return true;
+  const c = ghRead();
+  return !!(c && c.token);
+}
+function ghStatus(msg, kind){
+  const el = document.getElementById('ghStatus');
+  el.className = 'admin-status' + (kind ? ' ' + kind : '');
+  el.innerHTML = msg;
+}
+
+/* base64 of a UTF-8 string, chunked so a ~1 MB payload doesn't blow the stack */
+function toBase64Utf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  const CH = 0x8000;
+  for(let i = 0; i < bytes.length; i += CH){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  }
+  return btoa(bin);
+}
+
+async function publishToGitHub(){
+  if(!CURRENT || !CURRENT.rows.length){ ghStatus('Upload a CSV first — there is nothing to publish.', 'err'); return; }
+  const cfg = ghRead();
+  if(!cfg.token){ ghStatus('Save a GitHub token first.', 'err'); return; }
+  if(!cfg.owner || !cfg.repo){ ghStatus('Set the repo owner and name.', 'err'); return; }
+
+  const btn = document.getElementById('ghPublish');
+  btn.disabled = true;
+  const text = buildDataJsText();
+  const sizeMB = (new Blob([text]).size / 1048576);
+  ghStatus('Preparing ' + sizeMB.toFixed(2) + ' MB…');
+
+  const api = 'https://api.github.com/repos/' + encodeURIComponent(cfg.owner) + '/' +
+              encodeURIComponent(cfg.repo) + '/contents/' + cfg.path;
+  const headers = {
+    'Authorization': 'Bearer ' + cfg.token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+
+  try{
+    if(sizeMB > 3){
+      throw new Error('data.js is ' + sizeMB.toFixed(1) + ' MB — too big for this route. ' +
+        'Use Download data.js and commit it with GitHub Desktop instead.');
+    }
+    // 1. current file sha (needed to replace it)
+    ghStatus('Checking the existing data.js…');
+    let sha = null;
+    const cur = await fetch(api + '?ref=' + encodeURIComponent(cfg.branch), {headers});
+    if(cur.ok){ sha = (await cur.json()).sha; }
+    else if(cur.status === 404){ sha = null; }                       // first publish
+    else if(cur.status === 401){ throw new Error('GitHub rejected the token (401). It may be expired or mistyped.'); }
+    else if(cur.status === 403){ throw new Error('GitHub says forbidden (403). The token needs Contents: Read and write on this repo.'); }
+    else { throw new Error('GitHub returned ' + cur.status + ' while reading data.js.'); }
+
+    // 2. commit
+    ghStatus('Uploading ' + sizeMB.toFixed(2) + ' MB to ' + esc(cfg.owner + '/' + cfg.repo) + '…');
+    const body = {
+      message: 'Data refresh — ' + CURRENT.rows.length + ' campaigns, latest send ' + (latestSendDate() || 'unknown'),
+      content: toBase64Utf8(text),
+      branch: cfg.branch
+    };
+    if(sha) body.sha = sha;
+    const put = await fetch(api, {method:'PUT', headers, body: JSON.stringify(body)});
+    if(!put.ok){
+      let detail = '';
+      try{ detail = (await put.json()).message || ''; }catch(e){}
+      throw new Error('GitHub returned ' + put.status + (detail ? ' — ' + detail : '') + '.');
+    }
+    const res = await put.json();
+
+    // the admin should now see the same thing as everyone else
+    clearLocal();
+    const b = document.getElementById('uploadBanner');
+    b.className = 'banner'; b.innerHTML = '';
+
+    ghStatus('Published. <a href="' + esc((res.commit && res.commit.html_url) || '#') + '" target="_blank" rel="noopener" ' +
+             'style="color:inherit">Commit ' + esc(((res.commit && res.commit.sha) || '').slice(0,7)) + '</a> is live. ' +
+             'GitHub Pages rebuilds in about a minute — then hard-refresh (Ctrl+Shift+R) to confirm.', 'ok');
+  } catch(err){
+    ghStatus('Could not publish: ' + esc(err.message), 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function initAdminUI(){
+  const admin = isAdmin();
+  ['uploadBtn','publishBtn','resetBtn'].forEach(id => { document.getElementById(id).hidden = !admin; });
+  document.getElementById('adminPanel').hidden = !admin;
+  if(!admin) return;
+
+  const cfg = ghRead();
+  document.getElementById('ghOwner').value  = cfg.owner  || '';
+  document.getElementById('ghRepo').value   = cfg.repo   || '';
+  document.getElementById('ghBranch').value = cfg.branch || 'main';
+  if(cfg.token){
+    document.getElementById('ghToken').value = '';
+    document.getElementById('ghToken').placeholder = 'token saved in this browser — type a new one to replace it';
+    ghStatus('Token saved in this browser. Upload a CSV, then click Publish.');
+  } else {
+    ghStatus('Paste a fine-grained GitHub token with <b>Contents: Read and write</b> on this repo, then Save token.');
+  }
+
+  document.getElementById('ghSave').addEventListener('click', () => {
+    const t = document.getElementById('ghToken').value.trim();
+    const next = {
+      owner:  document.getElementById('ghOwner').value.trim()  || GH_DEFAULTS.owner,
+      repo:   document.getElementById('ghRepo').value.trim()   || GH_DEFAULTS.repo,
+      branch: document.getElementById('ghBranch').value.trim() || 'main',
+      path:   'data.js',
+      token:  t || ghRead().token || ''
+    };
+    if(!next.token){ ghStatus('Paste a token before saving.', 'err'); return; }
+    ghWrite(next);
+    document.getElementById('ghToken').value = '';
+    document.getElementById('ghToken').placeholder = 'token saved in this browser — type a new one to replace it';
+    ghStatus('Saved. Upload a CSV, then click Publish.', 'ok');
+  });
+
+  document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
+
+  document.getElementById('adminForget').addEventListener('click', () => {
+    ghClear();
+    location.href = location.pathname;      // drop ?admin=1 and reload read-only
+  });
 }
 
 function noDataMessage(msg){
@@ -1428,12 +1625,11 @@ document.getElementById('fileInput').addEventListener('change', function(e){
           ' campaigns (' + (counts['Manual']||0) + ' Manual, ' + (counts['Lifecycle / Recurring']||0) + ' Lifecycle, ' +
           (counts['Backend Automated']||0) + ' Backend, ' + (counts['D0 Testing']||0) + ' D0, ' +
           (counts['Others']||0) + ' Others). All tabs updated.<br>' +
-          (saved
-            ? 'Saved in <b>this browser only</b> — it will survive a refresh, but nobody else can see it. ' +
-              'To publish it for everyone: click <b>Download data.js</b>, put that file in the repo folder, then commit &amp; push.'
-            : 'This browser could not save the file locally (too large or private mode) — it will be gone on refresh. ' +
-              'Click <b>Download data.js</b> and commit it to make it permanent.') +
+          'Right now this is visible <b>to you only</b>' + (saved ? ' (saved in this browser, survives a refresh)' : '') +
+          '. To show it to everyone with the link, click <b>Publish loaded data to everyone</b> in the admin box above.' +
           columnReportHtml();
+        ghStatus('New data loaded — ' + PARSED.length.toLocaleString('en-IN') +
+                 ' campaigns. Click Publish to make it live for everyone.');
       } catch(err){
         banner.className = 'banner show error';
         banner.innerHTML = 'Could not read "' + esc(file.name) + '" (' + sizeMB + '): ' + esc(err.message) +
@@ -1459,9 +1655,12 @@ document.getElementById('resetBtn').addEventListener('click', function(){
   }
 });
 
+document.getElementById('uploadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+
 /* ---------- init ---------- */
+initAdminUI();
 (function init(){
-  const local = readLocal();
+  const local = isAdmin() ? readLocal() : null;   // viewers always get the published data
   const pub   = publishedDataset();
   try{
     if(local){
