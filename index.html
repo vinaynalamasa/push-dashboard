@@ -123,6 +123,7 @@
     border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none;border-radius:7px 7px 0 0;transition:color .12s,background .12s;}
   .tab:hover{color:var(--text);background:var(--surface-2);}
   .tab.active{color:var(--brand);border-bottom-color:var(--brand);font-weight:640;}
+  .view{display:none;} .view.active{display:block;}
 
   /* ---------- KPI tiles ---------- */
   .hero{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
@@ -264,6 +265,7 @@
       <div class="fgroup">
         <span class="flabel">Date range</span>
         <div class="seg" id="datePresets">
+          <button type="button" data-range="yesterday">Yesterday</button>
           <button type="button" data-range="7" aria-pressed="true">Last 7 days</button>
           <button type="button" data-range="all">All time</button>
           <button type="button" data-range="custom">Custom</button>
@@ -346,18 +348,9 @@
   </div>
 
   <div class="view active" id="view-overall">
-    <div class="section">
-      <div class="section-head"><h2>Headline</h2><p>The three numbers that matter most.</p></div>
-      <div class="hero" id="kpi-hero"></div>
-    </div>
-    <div class="section">
-      <div class="section-head"><h2>Did it get through?</h2><p>How much of what you sent actually reached a phone screen.</p></div>
-      <div class="kpis" id="kpi-delivery"></div>
-    </div>
-    <div class="section">
-      <div class="section-head"><h2>Did people act on it?</h2><p>Taps, and what happened after the tap.</p></div>
-      <div class="kpis" id="kpi-engagement"></div>
-    </div>
+    <div class="section"><div class="hero" id="kpi-hero"></div></div>
+    <div class="section"><div class="kpis" id="kpi-delivery"></div></div>
+    <div class="section"><div class="kpis" id="kpi-engagement"></div></div>
     <div class="section">
       <div class="section-head"><h2>Trend over time</h2><p id="trendSub"></p></div>
       <div id="chart-overall-engagement" class="chart-card"></div>
@@ -872,14 +865,29 @@ function prettyDate(iso){
   const [y,m,d] = iso.split('-');
   return +d + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + y;
 }
+/* local calendar date, not UTC — toISOString() would roll over at 05:30 IST */
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
 function applyDatePreset(preset, skipRender){
   DATE_PRESET = preset;
   const {lo, hi} = dataDateBounds();
   const sEl = document.getElementById('startDate'), eEl = document.getElementById('endDate');
   document.getElementById('dateCustom').hidden = (preset !== 'custom');
-  if(preset !== 'custom' && lo && hi){
-    eEl.value = hi;
-    sEl.value = (preset === 'all') ? lo : (function(){ const s = shiftDays(hi, -(parseInt(preset,10) - 1)); return s < lo ? lo : s; })();
+  if(preset !== 'custom'){
+    const today = todayISO();
+    if(preset === 'all'){
+      if(lo && hi){ sEl.value = lo; eEl.value = hi; }
+    } else if(preset === 'yesterday'){
+      const y = shiftDays(today, -1);
+      sEl.value = y; eEl.value = y;
+    } else {
+      const n = parseInt(preset, 10);
+      eEl.value = today;
+      sEl.value = shiftDays(today, -(n - 1));
+    }
   }
   [].forEach.call(document.querySelectorAll('#datePresets button'), b => {
     b.setAttribute('aria-pressed', String(b.getAttribute('data-range') === preset));
@@ -1604,7 +1612,15 @@ function renderAll(){
       prettyDate(String(DATA_THROUGH || DATA_PUBLISHED).slice(0,10)) + '.';
   const th = document.getElementById('typeHelp');
   if(th) th.textContent = TYPE_HELP[getCampaignType()] || '';
-  updateDateHelp();
+
+  // resolved range, and an honest note when the window holds nothing
+  const dr = getDateRange();
+  const dh = document.getElementById('dateHelp');
+  if(dh){
+    dh.textContent = prettyDate(dr.start) + '  →  ' + prettyDate(dr.end) +
+      (o.Campaigns === 0 ? '  ·  no campaigns in this range (data runs to ' +
+        prettyDate(String(DATA_THROUGH || DATA_PUBLISHED).slice(0,10)) + ')' : '');
+  }
 
   const {start, end} = getDateRange();
   document.getElementById('footNote').innerHTML =
