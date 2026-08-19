@@ -1,124 +1,243 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <title>Push Performance Dashboard — GyanTV</title>
 <style>
+
+  /* ============================================================
+     Design tokens. Dark is the default; light is a real second
+     theme, not an inversion. Chart series colours are stepped
+     separately for each surface and validated for colour-vision
+     deficiency against that surface.
+     ============================================================ */
   :root{
-    --bg:#0B0F17; --panel:#121826; --panel2:#161E2E; --border:#232C40;
-    --text:#E7ECF5; --muted:#8A93A8; --muted2:#5C6478;
-    --accent:#3DD9C4; --accent-dim:#1E5A52; --warn:#FB7A6B; --warn-dim:#5A2A26;
-    --gold:#E8B14E;
-    /* validated categorical palette (dark steps, checked against #121826 surface) */
+    --bg:#0B0F17; --surface:#141B2B; --surface-2:#1A2233; --surface-3:#202A3E;
+    --border:#252F45; --border-soft:#1C2436; --border-strong:#33405C;
+    --text:#EDF1F8; --text-2:#9AA4BA; --text-3:#6B7690;
+    --brand:#3DD9C4; --brand-ink:#0B2E2A; --brand-soft:#123B37;
+    --pos:#4ADE9B; --neg:#FB7A6B; --warn:#E8B14E;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+    --grid:#1F2839; --axis:#2A3550;
+    --bar-good:rgba(61,217,196,.16); --bar-bad:rgba(251,122,107,.16);
     --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --series-4:#c98500;
     --series-5:#d55181; --series-6:#9085e9; --series-7:#e66767; --series-other:#6B7488;
-    --grid:#1E2739;
   }
+  [data-theme="light"]{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#F7F9FC; --surface-3:#EEF2F7;
+    --border:#E1E7F0; --border-soft:#EDF1F6; --border-strong:#C9D3E2;
+    --text:#141B2B; --text-2:#5B6779; --text-3:#8792A5;
+    --brand:#0E9E8B; --brand-ink:#FFFFFF; --brand-soft:#E4F7F4;
+    --pos:#12855F; --neg:#C8442F; --warn:#A96C00;
+    --shadow:0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    --shadow-sm:0 1px 2px rgba(16,24,40,.06);
+    --grid:#EDF1F6; --axis:#D8E0EB;
+    --bar-good:rgba(14,158,139,.14); --bar-bad:rgba(200,68,47,.13);
+    --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100;
+    --series-5:#e87ba4; --series-6:#4a3aa7; --series-7:#e34948; --series-other:#7A8699;
+  }
+
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:24px 20px 60px;}
-  .wrap{max-width:1220px;margin:0 auto;}
-  .masthead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px;flex-wrap:wrap;gap:14px;}
-  .masthead h1{font-size:19px;font-weight:600;margin:0 0 4px;}
-  .masthead .sub{color:var(--muted);font-size:12.5px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
-
-  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:18px;}
-  .controls .grp{display:flex;align-items:center;gap:6px;}
-  .controls label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
-  .controls input[type=date]{background:#1A2236;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;}
-  .controls .status{margin-left:auto;font-size:11.5px;color:var(--muted);font-family:ui-monospace,Menlo,Consolas,monospace;}
-  .upload-btn{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);padding:7px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
-  .upload-btn:hover{background:#26766a;}
-  #fileInput{display:none;}
-  .reset-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:5px;font-size:12px;cursor:pointer;font-family:inherit;}
-  .reset-btn:hover{color:var(--text);border-color:var(--muted);}
-
-  .tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
-  .tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;user-select:none;}
-  .tab:hover{color:var(--text);}
-  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-  .view{display:none;} .view.active{display:block;}
-
-  .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:18px;}
-  .kpi-grid2{grid-template-columns:repeat(3,1fr);}
-  .kpi{background:var(--panel);padding:16px 14px;}
-  .kpi .lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;cursor:help;border-bottom:1px dotted var(--muted2);display:inline-block;}
-  .kpi .val{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:22px;font-weight:600;color:var(--text);}
-  .kpi .val.accent{color:var(--accent);} .kpi .val.warn{color:var(--warn);} .kpi .val.gold{color:var(--gold);}
-  .kpi .val small{font-size:12px;color:var(--muted2);font-weight:400;}
-
-  table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  thead th{text-align:right;font-weight:500;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:0.4px;padding:9px 10px;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:var(--bg);}
-  thead th:first-child{text-align:left;}
-  thead th:hover{color:var(--accent);}
-  thead th.sorted{color:var(--accent);}
-  tbody td{padding:9px 10px;text-align:right;border-bottom:1px solid #1a2233;font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap;}
-  tbody td:first-child{text-align:left;font-family:inherit;color:var(--text);}
-  tbody tr:hover{background:var(--panel2);}
-  tfoot td{padding:9px 10px;text-align:right;border-top:1px solid var(--border);font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--muted);font-weight:600;white-space:nowrap;}
-  tfoot td:first-child{text-align:left;font-family:inherit;}
-  .bar-cell{position:relative;}
-  .bar-bg{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg, rgba(61,217,196,0.14), rgba(61,217,196,0.05));z-index:0;}
-  .bar-bg.low{background:linear-gradient(90deg, rgba(251,122,107,0.16), rgba(251,122,107,0.05));}
-  .bar-text{position:relative;z-index:1;}
-  .table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:auto;max-height:560px;}
-  .section-title{font-size:13px;font-weight:600;margin:0 0 10px;}
-  .section-note{font-size:11.5px;color:var(--muted);margin:8px 0 16px;line-height:1.5;}
-  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;align-items:center;}
-  .legend span{display:inline-flex;align-items:center;gap:5px;}
-  .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
-  .dot.good{background:var(--accent);} .dot.bad{background:var(--warn);}
-  .foot{margin-top:24px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted2);font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.7;}
-  select.filter{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;}
-  select.filter:disabled{opacity:.4;cursor:not-allowed;}
-  .banner{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:14px;display:none;line-height:1.6;}
-  .banner.show{display:block;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter','Segoe UI Variable Text','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,'Helvetica Neue',sans-serif;
+    font-size:14px; line-height:1.5; padding:0 20px 72px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1, "cv01" 1;}
+  .wrap{max-width:1240px;margin:0 auto;}
   [hidden]{display:none !important;}
+  a{color:var(--brand);}
 
-  /* ---- admin panel ---- */
-  .admin{background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:18px;}
-  .admin-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
-  .admin-title{font-size:12px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:.6px;}
-  .admin-head .reset-btn{margin-left:auto;}
-  .admin-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
-  .admin-row label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
-  .admin-row .sep{color:var(--muted2);}
-  .admin input[type=password],.admin input[type=text]{background:#1A2236;color:var(--text);border:1px solid var(--border);
-    border-radius:4px;padding:7px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;min-width:150px;flex:1 1 200px;max-width:460px;}
-  .admin-note{font-size:11px;color:var(--muted);}
-  .admin-note code{color:var(--gold);}
-  .admin-status{font-size:11.5px;color:var(--muted);font-family:ui-monospace,Menlo,Consolas,monospace;min-height:16px;line-height:1.6;}
-  .admin-status.ok{color:var(--accent);} .admin-status.err{color:var(--warn);}
-  .banner.error{background:var(--warn-dim);border-color:var(--warn);color:#FFC9C1;}
-  .banner details{margin-top:6px;}
-  .banner summary{cursor:pointer;opacity:.85;}
-  .banner table{font-size:11px;margin-top:8px;width:auto;}
-  .banner table td{padding:2px 12px 2px 0;border:0;text-align:left;font-family:ui-monospace,Menlo,Consolas,monospace;color:inherit;}
+  /* ---------- masthead ---------- */
+  .masthead{display:flex;align-items:center;gap:16px;padding:26px 0 20px;flex-wrap:wrap;}
+  .masthead h1{font-size:23px;font-weight:650;letter-spacing:-0.02em;margin:0 0 3px;}
+  .masthead .sub{color:var(--text-2);font-size:13px;}
+  .masthead .spacer{margin-left:auto;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--text-2);}
+  .chip b{color:var(--text);font-weight:600;}
+  .chip .dot-live{width:7px;height:7px;border-radius:50%;background:var(--brand);flex:none;}
+  .icon-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:999px;
+    width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;
+    transition:background .12s,color .12s,border-color .12s;}
+  .icon-btn:hover{color:var(--text);border-color:var(--border-strong);background:var(--surface-2);}
 
-  /* ---- charts ---- */
-  .chart-card{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:14px 16px 10px;margin-bottom:14px;position:relative;}
-  .chart-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px;}
-  .chart-title{font-size:12.5px;font-weight:600;}
-  .chart-sub{font-size:11px;color:var(--muted);}
-  .chart-legend{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 2px;font-size:11px;color:var(--muted);}
-  .chart-legend b{font-weight:500;color:var(--text);}
-  .chart-legend i{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px;}
+  /* ---------- generic surfaces ---------- */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);}
+  .section{margin-bottom:26px;}
+  .section-head{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;flex-wrap:wrap;}
+  .section-head h2{font-size:15px;font-weight:640;letter-spacing:-0.01em;margin:0;}
+  .section-head p{font-size:12.5px;color:var(--text-2);margin:0;}
+  .section-head .spacer{margin-left:auto;}
+
+  /* ---------- filter bar ---------- */
+  .filters{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);
+    padding:14px 16px;margin-bottom:20px;}
+  .filters-row{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;}
+  .fgroup{display:flex;flex-direction:column;gap:7px;min-width:0;}
+  .fgroup > .flabel{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;}
+  .fgroup .fhelp{font-size:11.5px;color:var(--text-3);max-width:340px;}
+
+  .seg{display:inline-flex;background:var(--surface-3);border:1px solid var(--border);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap;}
+  .seg button{background:transparent;border:0;color:var(--text-2);font:inherit;font-size:12.5px;font-weight:520;
+    padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .12s,color .12s;}
+  .seg button:hover{color:var(--text);}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);font-weight:620;box-shadow:var(--shadow-sm);}
+  [data-theme="light"] .seg button[aria-pressed="true"]{background:#fff;}
+
+  select.ui, input.ui{
+    background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:9px;
+    padding:8px 11px;font:inherit;font-size:13px;min-height:36px;transition:border-color .12s,box-shadow .12s;
+  }
+  select.ui{padding-right:30px;appearance:none;cursor:pointer;
+    background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+    background-position:calc(100% - 16px) 51%, calc(100% - 11px) 51%;
+    background-size:5px 5px, 5px 5px; background-repeat:no-repeat;}
+  select.ui:focus-visible, input.ui:focus-visible, .seg button:focus-visible, .btn:focus-visible{
+    outline:none;border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);}
+  select.ui:disabled{opacity:.45;cursor:not-allowed;}
+  input.ui[type=date]{font-variant-numeric:tabular-nums;}
+  .date-custom{display:flex;gap:8px;align-items:center;}
+  .date-custom span{color:var(--text-3);font-size:12.5px;}
+
+  .btn{background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:9px;
+    padding:8px 14px;font:inherit;font-size:12.5px;font-weight:560;cursor:pointer;min-height:36px;
+    transition:background .12s,border-color .12s;}
+  .btn:hover{background:var(--surface-3);border-color:var(--border-strong);}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:640;}
+  .btn.primary:hover{filter:brightness(1.07);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  #fileInput{display:none;}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:4px;margin:0 0 22px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .tab{padding:10px 15px;font-size:13.5px;font-weight:540;color:var(--text-2);cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none;border-radius:7px 7px 0 0;transition:color .12s,background .12s;}
+  .tab:hover{color:var(--text);background:var(--surface-2);}
+  .tab.active{color:var(--brand);border-bottom-color:var(--brand);font-weight:640;}
+
+  /* ---------- KPI tiles ---------- */
+  .hero{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:14px;}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 17px;box-shadow:var(--shadow-sm);}
+  .tile .lbl{font-size:12px;font-weight:600;color:var(--text-2);display:inline-block;cursor:help;
+    border-bottom:1px dotted var(--border-strong);letter-spacing:.005em;}
+  .tile .lbl:hover{color:var(--text);}
+  .tile .val{font-size:24px;font-weight:660;letter-spacing:-0.025em;margin-top:9px;
+    font-variant-numeric:tabular-nums;line-height:1.15;}
+  .tile .val small{font-size:14px;font-weight:520;color:var(--text-3);letter-spacing:0;}
+  .tile .hint{font-size:11.5px;color:var(--text-3);margin-top:5px;line-height:1.45;}
+  .tile.big .val{font-size:33px;}
+  .tile.big{padding:19px 20px;}
+  .val.brand{color:var(--brand);} .val.pos{color:var(--pos);} .val.warn{color:var(--warn);}
+
+  /* ---------- tables ---------- */
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:auto;
+    max-height:600px;box-shadow:var(--shadow-sm);}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;}
+  thead th{text-align:right;font-weight:600;color:var(--text-2);font-size:11.5px;padding:11px 12px;
+    border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;position:sticky;top:0;
+    background:var(--surface-2);z-index:2;user-select:none;}
+  thead th:first-child{text-align:left;}
+  thead th:hover{color:var(--text);}
+  thead th.sorted{color:var(--brand);}
+  tbody td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--border-soft);white-space:nowrap;
+    font-variant-numeric:tabular-nums;}
+  tbody td:first-child{text-align:left;font-weight:540;}
+  tbody tr:last-child td{border-bottom:0;}
+  tbody tr:hover td{background:var(--surface-2);}
+  tfoot td{padding:11px 12px;text-align:right;border-top:1px solid var(--border);color:var(--text-2);
+    font-weight:640;white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--surface-2);
+    position:sticky;bottom:0;}
+  tfoot td:first-child{text-align:left;}
+  .bar-cell{position:relative;}
+  .bar-bg{position:absolute;left:0;top:3px;bottom:3px;background:var(--bar-good);border-radius:0 4px 4px 0;z-index:0;}
+  .bar-bg.low{background:var(--bar-bad);}
+  .bar-text{position:relative;z-index:1;font-weight:600;}
+
+  /* ---------- charts ---------- */
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:16px 18px 12px;margin-bottom:14px;position:relative;box-shadow:var(--shadow-sm);}
+  .chart-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+  .chart-title{font-size:14px;font-weight:640;letter-spacing:-0.01em;}
+  .chart-sub{font-size:12px;color:var(--text-2);margin-top:3px;max-width:760px;line-height:1.5;}
+  .chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin:11px 0 2px;font-size:12px;color:var(--text-2);}
+  .chart-legend b{font-weight:540;color:var(--text);}
+  .chart-legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:0;}
   .chart-svg{width:100%;height:auto;display:block;overflow:visible;}
-  .chart-empty{padding:40px 10px;text-align:center;color:var(--muted);font-size:12px;}
-  .chart-controls{margin-left:auto;display:flex;gap:8px;align-items:center;}
-  .chart-tip{position:absolute;pointer-events:none;background:#0A0E16;border:1px solid var(--border);border-radius:5px;padding:8px 10px;font-size:11.5px;line-height:1.55;z-index:40;display:none;box-shadow:0 6px 20px rgba(0,0,0,.55);white-space:nowrap;}
-  .chart-tip .h{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
-  .chart-tip .r{display:flex;justify-content:space-between;gap:14px;}
-  .chart-tip .r em{font-style:normal;color:var(--muted);}
-  .chart-tip .r b{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:600;}
-  details.numbers{margin:2px 0 18px;}
-  details.numbers summary{font-size:11.5px;color:var(--muted);cursor:pointer;padding:6px 0;}
+  .chart-empty{padding:46px 10px;text-align:center;color:var(--text-3);font-size:13px;}
+  .chart-controls{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text-2);}
+  .chart-tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border-strong);
+    border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.6;z-index:40;display:none;
+    box-shadow:var(--shadow);white-space:nowrap;}
+  .chart-tip .h{color:var(--text-2);font-size:11px;font-weight:600;margin-bottom:5px;}
+  .chart-tip .r{display:flex;justify-content:space-between;gap:18px;}
+  .chart-tip .r em{font-style:normal;color:var(--text-2);}
+  .chart-tip .r b{font-weight:640;font-variant-numeric:tabular-nums;}
+  details.numbers{margin:2px 0 20px;}
+  details.numbers summary{font-size:12.5px;color:var(--text-2);cursor:pointer;padding:8px 0;list-style:none;}
+  details.numbers summary::-webkit-details-marker{display:none;}
+  details.numbers summary::before{content:'▸ ';color:var(--text-3);}
+  details.numbers[open] summary::before{content:'▾ ';}
   details.numbers summary:hover{color:var(--text);}
 
-  /* ---- hover explainer tooltip ---- */
-  #tip{position:fixed;z-index:99;max-width:290px;background:#0A0E16;border:1px solid var(--accent-dim);border-left:3px solid var(--accent);border-radius:5px;padding:9px 11px;font-size:11.5px;line-height:1.55;color:var(--text);display:none;box-shadow:0 8px 26px rgba(0,0,0,.6);pointer-events:none;}
-  #tip b{color:var(--accent);display:block;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
-  #tip code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--gold);font-size:11px;}
+  /* ---------- callouts ---------- */
+  .note{font-size:12.5px;color:var(--text-2);line-height:1.6;background:var(--surface-2);
+    border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px;margin-top:14px;}
+  .note code{background:var(--surface-3);padding:1px 5px;border-radius:4px;font-size:11.5px;}
+  .legend{display:flex;gap:16px;row-gap:10px;font-size:12px;color:var(--text-2);margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;max-width:100%;}
+  .legend select.ui{min-width:0;max-width:100%;}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
+  .dot.good{background:var(--brand);} .dot.bad{background:var(--neg);}
+  .foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--border);color:var(--text-3);
+    font-size:12px;line-height:1.7;}
+
+  .banner{background:var(--brand-soft);border:1px solid color-mix(in srgb, var(--brand) 45%, transparent);
+    color:var(--text);border-radius:11px;padding:13px 16px;font-size:13px;margin-bottom:16px;display:none;line-height:1.6;}
+  .banner.show{display:block;}
+  .banner.error{background:color-mix(in srgb, var(--neg) 13%, var(--surface));
+    border-color:color-mix(in srgb, var(--neg) 50%, transparent);}
+  .banner details{margin-top:8px;}
+  .banner summary{cursor:pointer;color:var(--text-2);font-size:12.5px;}
+  .banner table{font-size:12px;margin-top:9px;width:auto;}
+  .banner table td{padding:3px 16px 3px 0;border:0;text-align:left;color:var(--text-2);white-space:normal;}
+
+  /* ---------- admin ---------- */
+  .admin{background:var(--surface);border:1px solid var(--warn);border-radius:12px;padding:15px 17px;
+    margin-bottom:20px;box-shadow:var(--shadow-sm);}
+  .admin-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .admin-title{font-size:12px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.08em;}
+  .admin-head .btn{margin-left:auto;}
+  .admin-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+  .admin-row label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;}
+  .admin-row .sep{color:var(--text-3);}
+  .admin input.ui{min-width:150px;flex:1 1 210px;max-width:470px;}
+  .admin-note{font-size:12px;color:var(--text-2);}
+  .admin-note code{color:var(--warn);}
+  .admin-status{font-size:12.5px;color:var(--text-2);min-height:18px;line-height:1.6;}
+  .admin-status.ok{color:var(--pos);} .admin-status.err{color:var(--neg);}
+
+  /* ---------- hover explainer ---------- */
+  #tip{position:fixed;z-index:99;max-width:310px;background:var(--surface);border:1px solid var(--border-strong);
+    border-left:3px solid var(--brand);border-radius:9px;padding:11px 13px;font-size:12.5px;line-height:1.6;
+    color:var(--text);display:none;box-shadow:var(--shadow);pointer-events:none;}
+  #tip b{color:var(--brand);display:block;margin-bottom:4px;font-size:11.5px;font-weight:700;letter-spacing:.02em;}
+  #tip code{background:var(--surface-3);padding:1px 5px;border-radius:4px;font-size:11.5px;color:var(--text);}
+
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;}
+    .filters-row{gap:18px;}
+    .masthead h1{font-size:20px;}
+  }
 </style>
 </head>
 <body>
@@ -129,62 +248,90 @@
 
   <div class="masthead">
     <div>
-      <h1>Push Notification Performance Dashboard</h1>
-      <div class="sub">GyanTV · Android · MoEngage export</div>
+      <h1>Push Notification Performance</h1>
+      <div class="sub">GyanTV · Android · MoEngage</div>
     </div>
+    <div class="spacer"></div>
+    <span class="chip" id="dataChip"><span class="dot-live"></span><span id="dataChipText">Loading…</span></span>
+    <button class="icon-btn" id="themeToggle" title="Switch between dark and light" aria-label="Switch theme">◐</button>
   </div>
 
   <div class="banner" id="uploadBanner"></div>
 
-  <div class="controls">
-    <div class="grp"><label>Start</label><input type="date" id="startDate" autocomplete="off"></div>
-    <div class="grp"><label>End</label><input type="date" id="endDate" autocomplete="off"></div>
-    <div class="grp">
-      <label>Campaign Type</label>
-      <select class="filter" id="campaignTypeFilter">
-        <option value="Manual" selected>Manual Campaigns</option>
-        <option value="Lifecycle / Recurring">Lifecycle / Recurring</option>
-        <option value="Backend Automated">Backend Automated</option>
-        <option value="D0 Testing">D0 Notifications</option>
-        <option value="Others">Others</option>
-        <option value="all">All Types</option>
-      </select>
+  <div class="filters">
+    <div class="filters-row">
+
+      <div class="fgroup">
+        <span class="flabel">Date range</span>
+        <div class="seg" id="datePresets">
+          <button type="button" data-range="7" aria-pressed="true">Last 7 days</button>
+          <button type="button" data-range="all">All time</button>
+          <button type="button" data-range="custom">Custom</button>
+        </div>
+        <div class="date-custom" id="dateCustom" hidden>
+          <input type="date" class="ui" id="startDate" autocomplete="off">
+          <span>to</span>
+          <input type="date" class="ui" id="endDate" autocomplete="off">
+        </div>
+        <span class="fhelp" id="dateHelp"></span>
+      </div>
+
+      <div class="fgroup">
+        <span class="flabel">Which campaigns</span>
+        <select class="ui" id="campaignTypeFilter">
+          <option value="Manual" selected>Manual campaigns</option>
+          <option value="Lifecycle / Recurring">Lifecycle / recurring</option>
+          <option value="Backend Automated">Backend automated</option>
+          <option value="D0 Testing">D0 notifications</option>
+          <option value="Others">Others</option>
+          <option value="all">Everything</option>
+        </select>
+        <span class="fhelp" id="typeHelp"></span>
+      </div>
+
+      <div class="fgroup">
+        <span class="flabel" data-tip-key="granularity">Chart points</span>
+        <div class="seg" id="granularitySeg">
+          <button type="button" data-gran="day">Daily</button>
+          <button type="button" data-gran="week" aria-pressed="true">Weekly</button>
+          <button type="button" data-gran="month">Monthly</button>
+        </div>
+        <span class="fhelp">How the trend charts group time.</span>
+      </div>
+
+      <div class="fgroup" id="adminButtons" hidden>
+        <span class="flabel">Data</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="uploadBtn">Upload new CSV</button>
+          <button class="btn" id="publishBtn" title="Save the loaded data as data.js so you can commit it by hand">Download data.js</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,text/csv">
+
     </div>
-    <div class="grp">
-      <label data-tip-key="granularity">Trend</label>
-      <select class="filter" id="granularity">
-        <option value="day">Daily</option>
-        <option value="week" selected>Weekly</option>
-        <option value="month">Monthly</option>
-      </select>
-    </div>
-    <button class="upload-btn" id="uploadBtn" hidden>Upload new CSV</button>
-    <input type="file" id="fileInput" accept=".csv,text/csv">
-    <button class="reset-btn" id="publishBtn" hidden title="Save the data currently loaded as data.js so you can commit it by hand">Download data.js</button>
-    <button class="reset-btn" id="resetBtn" hidden>Reset to published data</button>
-    <div class="status" id="statusLine"></div>
   </div>
 
   <div class="admin" id="adminPanel" hidden>
     <div class="admin-head">
       <span class="admin-title">Admin — publish data for everyone</span>
-      <button class="reset-btn" id="adminForget" title="Remove the saved token from this browser">Sign out</button>
-    </div>
-    <div class="admin-row" id="adminAuth">
-      <label>GitHub token</label>
-      <input type="password" id="ghToken" placeholder="github_pat_… (fine-grained, Contents: Read and write)" autocomplete="off" spellcheck="false">
-      <button class="upload-btn" id="ghSave">Save token</button>
-    </div>
-    <div class="admin-row" id="adminRepo">
-      <label>Repo</label>
-      <input type="text" id="ghOwner" placeholder="owner" autocomplete="off" spellcheck="false">
-      <span class="sep">/</span>
-      <input type="text" id="ghRepo" placeholder="repo" autocomplete="off" spellcheck="false">
-      <label>Branch</label>
-      <input type="text" id="ghBranch" placeholder="main" autocomplete="off" spellcheck="false" style="max-width:110px">
+      <button class="btn" id="adminForget" title="Remove the saved token from this browser">Sign out</button>
     </div>
     <div class="admin-row">
-      <button class="upload-btn" id="ghPublish">Publish loaded data to everyone</button>
+      <label>GitHub token</label>
+      <input type="password" class="ui" id="ghToken" placeholder="github_pat_… (fine-grained, Contents: Read and write)" autocomplete="off" spellcheck="false">
+      <button class="btn" id="ghSave">Save token</button>
+    </div>
+    <div class="admin-row">
+      <label>Repo</label>
+      <input type="text" class="ui" id="ghOwner" placeholder="owner" autocomplete="off" spellcheck="false" style="flex:0 1 190px">
+      <span class="sep">/</span>
+      <input type="text" class="ui" id="ghRepo" placeholder="repo" autocomplete="off" spellcheck="false" style="flex:0 1 190px">
+      <label>Branch</label>
+      <input type="text" class="ui" id="ghBranch" placeholder="main" autocomplete="off" spellcheck="false" style="flex:0 0 120px">
+    </div>
+    <div class="admin-row">
+      <button class="btn primary" id="ghPublish">Publish loaded data to everyone</button>
       <span class="admin-note">Commits <code>data.js</code> to the repo. Everyone with the link sees it in about a minute.</span>
     </div>
     <div class="admin-status" id="ghStatus"></div>
@@ -192,41 +339,58 @@
 
   <div class="tabs" id="tabs">
     <div class="tab active" data-view="overall">Overall</div>
-    <div class="tab" data-view="language">Language Level</div>
-    <div class="tab" data-view="category">Category Level</div>
-    <div class="tab" data-view="segment">Segment Level</div>
-    <div class="tab" data-view="time">Hourly</div>
+    <div class="tab" data-view="language">By language</div>
+    <div class="tab" data-view="category">By category</div>
+    <div class="tab" data-view="segment">By audience</div>
+    <div class="tab" data-view="time">By hour</div>
   </div>
 
   <div class="view active" id="view-overall">
-    <div class="section-title">Headline metrics — for the selected Campaign Type &amp; date range</div>
-    <div class="kpi-grid" id="kpi-overall-1"></div>
-    <div class="kpi-grid" id="kpi-overall-2"></div>
-    <div class="kpi-grid kpi-grid2" id="kpi-overall-3"></div>
-    <div class="section-title" style="margin-top:22px">Trend over time</div>
-    <div id="chart-overall-engagement" class="chart-card"></div>
-    <div id="chart-overall-conversion" class="chart-card"></div>
-    <div id="chart-overall-delivery" class="chart-card"></div>
-    <details class="numbers"><summary>Show the numbers behind these charts</summary>
-      <div class="table-wrap"><table id="tbl-overall-trend"></table></div>
-    </details>
-    <div class="section-note">Every number and every chart on this page obeys the Start/End dates and the Campaign Type dropdown above. Hover any column heading or metric label for a plain-English explanation. Language, category and hour breakdowns only work for Manual and D0 campaigns, because only those follow the structured naming convention.</div>
+    <div class="section">
+      <div class="section-head"><h2>Headline</h2><p>The three numbers that matter most.</p></div>
+      <div class="hero" id="kpi-hero"></div>
+    </div>
+    <div class="section">
+      <div class="section-head"><h2>Did it get through?</h2><p>How much of what you sent actually reached a phone screen.</p></div>
+      <div class="kpis" id="kpi-delivery"></div>
+    </div>
+    <div class="section">
+      <div class="section-head"><h2>Did people act on it?</h2><p>Taps, and what happened after the tap.</p></div>
+      <div class="kpis" id="kpi-engagement"></div>
+    </div>
+    <div class="section">
+      <div class="section-head"><h2>Trend over time</h2><p id="trendSub"></p></div>
+      <div id="chart-overall-engagement" class="chart-card"></div>
+      <div id="chart-overall-conversion" class="chart-card"></div>
+      <div id="chart-overall-delivery" class="chart-card"></div>
+      <details class="numbers"><summary>Show the numbers behind these charts</summary>
+        <div class="table-wrap"><table id="tbl-overall-trend"></table></div>
+      </details>
+    </div>
+    <div class="note">
+      Everything on this page follows the date range and campaign type you picked above.
+      <b>Hover any column heading or metric name</b> for a plain-English explanation of what it measures.
+      The language, category, audience and hour tabs only work for Manual, Lifecycle and D0 campaigns —
+      those are the ones whose names follow a structure the dashboard can read.
+    </div>
   </div>
 
   <div class="view" id="view-language">
-    <div class="section-title">Performance by language</div>
-    <div class="legend"><span><span class="dot good"></span>Above overall Unique CTR</span><span><span class="dot bad"></span>Below overall Unique CTR</span></div>
+    <div class="section-head"><h2>Performance by language</h2><p>Hindi, Kannada, Tamil and Telugu compared.</p>
+      <span class="spacer"></span><span id="detail-language"></span></div>
+    <div class="legend"><span><span class="dot good"></span>Above the overall Unique CTR</span><span><span class="dot bad"></span>Below it</span></div>
     <div class="table-wrap"><table id="tbl-language"></table></div>
     <div style="height:16px"></div>
     <div id="chart-language" class="chart-card"></div>
   </div>
 
   <div class="view" id="view-category">
-    <div class="section-title">Performance by content category</div>
+    <div class="section-head"><h2>Performance by content category</h2><p>Which topics people actually tap.</p>
+      <span class="spacer"></span><span id="detail-category"></span></div>
     <div class="legend">
-      <span><span class="dot good"></span>Above overall Unique CTR</span>
-      <span><span class="dot bad"></span>Below overall Unique CTR</span>
-      <span style="margin-left:auto">Language: <select class="filter" id="category-lang-filter"><option value="all">All languages</option></select></span>
+      <span><span class="dot good"></span>Above the overall Unique CTR</span>
+      <span><span class="dot bad"></span>Below it</span>
+      <span style="margin-left:auto">Language <select class="ui" id="category-lang-filter"><option value="all">All languages</option></select></span>
     </div>
     <div class="table-wrap"><table id="tbl-category"></table></div>
     <div style="height:16px"></div>
@@ -234,11 +398,12 @@
   </div>
 
   <div class="view" id="view-segment">
-    <div class="section-title">Performance by audience segment</div>
+    <div class="section-head"><h2>Performance by audience</h2><p>Who you sent it to.</p>
+      <span class="spacer"></span><span id="detail-segment"></span></div>
     <div class="legend">
-      <span><span class="dot good"></span>Above overall Unique CTR</span>
-      <span><span class="dot bad"></span>Below overall Unique CTR</span>
-      <span style="margin-left:auto">Language: <select class="filter" id="segment-lang-filter"><option value="all">All languages</option></select></span>
+      <span><span class="dot good"></span>Above the overall Unique CTR</span>
+      <span><span class="dot bad"></span>Below it</span>
+      <span style="margin-left:auto">Language <select class="ui" id="segment-lang-filter"><option value="all">All languages</option></select></span>
     </div>
     <div class="table-wrap"><table id="tbl-segment"></table></div>
     <div style="height:16px"></div>
@@ -246,22 +411,28 @@
   </div>
 
   <div class="view" id="view-time">
-    <div class="section-title">Performance by send hour</div>
+    <div class="section-head"><h2>Performance by send hour</h2><p>What time of day works best.</p>
+      <span class="spacer"></span><span id="detail-time"></span></div>
     <div class="legend">
-      <span><span class="dot good"></span>Above overall Unique CTR</span>
-      <span><span class="dot bad"></span>Below overall Unique CTR</span>
+      <span><span class="dot good"></span>Above the overall Unique CTR</span>
+      <span><span class="dot bad"></span>Below it</span>
       <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
-        Language: <select class="filter" id="time-lang-filter"><option value="all">All languages</option></select>
-        Category: <select class="filter" id="time-cat-filter"><option value="all">All categories</option></select>
+        Language <select class="ui" id="time-lang-filter"><option value="all">All languages</option></select>
+        Category <select class="ui" id="time-cat-filter"><option value="all">All categories</option></select>
       </span>
     </div>
     <div class="table-wrap"><table id="tbl-time"></table></div>
     <div style="height:16px"></div>
     <div id="chart-time" class="chart-card"></div>
-    <div class="section-note">The hour comes from the time token in the campaign name (e.g. <code>…_1030AM_…</code>). When a campaign name has no time token, the hour is taken from the MoEngage <code>Campaign Sent Time</code> instead, so Backend Automated campaigns can also be analysed here.</div>
+    <div class="note">
+      The hour comes from the time written into the campaign name, e.g. <code>…_1030AM_…</code>.
+      When a name has no time in it, the hour is taken from MoEngage's <code>Campaign Sent Time</code> instead,
+      so backend campaigns can be analysed here too.
+    </div>
   </div>
 
   <div class="foot" id="footNote"></div>
+
 </div>
 
 <script>
@@ -669,6 +840,58 @@ function getDateRange(){
   return {start: document.getElementById('startDate').value, end: document.getElementById('endDate').value};
 }
 function getCampaignType(){ return document.getElementById('campaignTypeFilter').value; }
+
+/* what each campaign type actually is, in one line */
+const TYPE_HELP = {
+  'Manual': 'Campaigns you scheduled by hand, named date_language_segment_category_time.',
+  'Lifecycle / Recurring': 'Weekly sends targeted by lifecycle stage — free, trial, subscribed, cancelled, never logged in.',
+  'Backend Automated': 'Triggered automatically by the app. Names carry no language or category.',
+  'D0 Testing': 'Day-zero tests sent to brand-new installs.',
+  'Others': 'Anything whose name does not follow a known pattern.',
+  'all': 'Every campaign in the file, all types mixed together.'
+};
+
+/* ---- date presets ---- */
+let DATE_PRESET = '7';
+function dataDateBounds(){
+  let lo = null, hi = null;
+  for(const r of PARSED){
+    if(!r.date) continue;
+    if(lo === null || r.date < lo) lo = r.date;
+    if(hi === null || r.date > hi) hi = r.date;
+  }
+  return {lo, hi};
+}
+function shiftDays(iso, n){
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0,10);
+}
+function prettyDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return +d + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + y;
+}
+function applyDatePreset(preset, skipRender){
+  DATE_PRESET = preset;
+  const {lo, hi} = dataDateBounds();
+  const sEl = document.getElementById('startDate'), eEl = document.getElementById('endDate');
+  document.getElementById('dateCustom').hidden = (preset !== 'custom');
+  if(preset !== 'custom' && lo && hi){
+    eEl.value = hi;
+    sEl.value = (preset === 'all') ? lo : (function(){ const s = shiftDays(hi, -(parseInt(preset,10) - 1)); return s < lo ? lo : s; })();
+  }
+  [].forEach.call(document.querySelectorAll('#datePresets button'), b => {
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-range') === preset));
+  });
+  updateDateHelp();
+  if(!skipRender) renderAll();
+}
+function updateDateHelp(){
+  const {start, end} = getDateRange();
+  const el = document.getElementById('dateHelp');
+  if(el) el.textContent = prettyDate(start) + '  →  ' + prettyDate(end);
+}
 function typeLabel(v){
   return {Manual:'Manual Campaigns','Lifecycle / Recurring':'Lifecycle / Recurring',
           'Backend Automated':'Backend Automated','D0 Testing':'D0 Notifications',
@@ -742,8 +965,21 @@ window.addEventListener('scroll', hideTip, true);
 /* ==========================================================================
    9. CHART ENGINE  (inline SVG, no libraries)
    ========================================================================== */
-const SERIES_COLORS = ['#3987e5','#d95926','#199e70','#c98500','#d55181','#9085e9','#e66767'];
-const OTHER_COLOR   = '#6B7488';
+/* Series colours live in CSS so they can be stepped per theme. Both sets were
+   validated for colour-vision deficiency against their own surface; the light
+   set carries a contrast warning on three hues, which is covered by the rule
+   that every chart here sits directly above or below its own data table. */
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+let SERIES_COLORS = [];
+let OTHER_COLOR = '#6B7488';
+let INK_2 = '#9AA4BA', INK_3 = '#6B7690', GRIDLINE = '#1F2839', AXISLINE = '#2A3550', SURFACE = '#141B2B';
+function refreshThemeColors(){
+  SERIES_COLORS = [1,2,3,4,5,6,7].map(i => cssVar('--series-' + i) || '#3987e5');
+  OTHER_COLOR = cssVar('--series-other') || '#6B7488';
+  INK_2 = cssVar('--text-2'); INK_3 = cssVar('--text-3');
+  GRIDLINE = cssVar('--grid'); AXISLINE = cssVar('--axis'); SURFACE = cssVar('--surface');
+}
+refreshThemeColors();
 
 function niceScale(min, max, count){
   count = count || 4;
@@ -799,8 +1035,8 @@ function drawChart(container, cfg){
   sc.ticks.forEach(t => {
     const y = Y(t);
     svg += '<line x1="' + M.l + '" x2="' + (W - M.r) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) +
-           '" stroke="var(--grid)" stroke-width="1"/>';
-    svg += '<text x="' + (M.l - 10) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#8A93A8" font-family="ui-monospace,Menlo,monospace">' + esc(f(t)) + '</text>';
+           '" stroke="' + GRIDLINE + '" stroke-width="1"/>';
+    svg += '<text x="' + (M.l - 10) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="11.5" fill="' + INK_3 + '">' + esc(f(t)) + '</text>';
   });
 
   // x labels — thin them out so they never collide
@@ -809,15 +1045,15 @@ function drawChart(container, cfg){
   labels.forEach((L, i) => {
     if(i % stepL !== 0 && i !== labels.length - 1) return;
     const x = cfg.type === 'bar' ? XB(i) : X(i);
-    svg += '<text x="' + x.toFixed(1) + '" y="' + (H - M.b + 20) + '" text-anchor="middle" font-size="11" fill="#8A93A8" font-family="ui-monospace,Menlo,monospace">' + esc(L) + '</text>';
+    svg += '<text x="' + x.toFixed(1) + '" y="' + (H - M.b + 20) + '" text-anchor="middle" font-size="11.5" fill="' + INK_3 + '">' + esc(L) + '</text>';
   });
 
   // benchmark line
   if(cfg.benchmark && isFinite(cfg.benchmark.value)){
     const y = Y(cfg.benchmark.value);
     svg += '<line x1="' + M.l + '" x2="' + (W - M.r) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) +
-           '" stroke="#8A93A8" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.8"/>';
-    svg += '<text x="' + (W - M.r - 4) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="end" font-size="10.5" fill="#8A93A8">' + esc(cfg.benchmark.label) + '</text>';
+           '" stroke="' + INK_3 + '" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.9"/>';
+    svg += '<text x="' + (W - M.r - 4) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="end" font-size="11" fill="' + INK_3 + '">' + esc(cfg.benchmark.label) + '</text>';
   }
 
   if(cfg.type === 'bar'){
@@ -831,7 +1067,7 @@ function drawChart(container, cfg){
       const h = Math.abs(y0 - y);
       const below = cfg.benchmark && isFinite(cfg.benchmark.value) && v < cfg.benchmark.value;
       svg += '<rect x="' + x.toFixed(1) + '" y="' + Math.min(y,y0).toFixed(1) + '" width="' + w.toFixed(1) +
-             '" height="' + Math.max(1,h).toFixed(1) + '" rx="4" fill="' + (below ? '#6B7488' : (s.color || SERIES_COLORS[0])) + '"/>';
+             '" height="' + Math.max(1,h).toFixed(1) + '" rx="4" fill="' + (below ? OTHER_COLOR : (s.color || SERIES_COLORS[0])) + '"/>';
     });
   } else {
     series.forEach(s => {
@@ -845,7 +1081,7 @@ function drawChart(container, cfg){
       if(labels.length <= 30){
         s.points.forEach((v, i) => {
           if(v == null) return;
-          svg += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="4" fill="' + s.color + '" stroke="var(--panel)" stroke-width="2"/>';
+          svg += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="4" fill="' + s.color + '" stroke="' + SURFACE + '" stroke-width="2"/>';
         });
       }
       // direct label at the end of the line when there are few enough series
@@ -861,17 +1097,21 @@ function drawChart(container, cfg){
   }
 
   // axes
-  svg += '<line x1="' + M.l + '" x2="' + M.l + '" y1="' + M.t + '" y2="' + (M.t+ih) + '" stroke="var(--border)"/>';
-  svg += '<line x1="' + M.l + '" x2="' + (W-M.r) + '" y1="' + (M.t+ih) + '" y2="' + (M.t+ih) + '" stroke="var(--border)"/>';
+  svg += '<line x1="' + M.l + '" x2="' + M.l + '" y1="' + M.t + '" y2="' + (M.t+ih) + '" stroke="' + AXISLINE + '"/>';
+  svg += '<line x1="' + M.l + '" x2="' + (W-M.r) + '" y1="' + (M.t+ih) + '" y2="' + (M.t+ih) + '" stroke="' + AXISLINE + '"/>';
 
   // invisible hover bands, one per x position
   const bandW = cfg.type === 'bar' ? iw / labels.length : (labels.length > 1 ? iw / (labels.length - 1) : iw);
   labels.forEach((L, i) => {
     const cx = cfg.type === 'bar' ? XB(i) : X(i);
-    svg += '<rect class="hband" data-i="' + i + '" x="' + (cx - bandW/2).toFixed(1) + '" y="' + M.t +
-           '" width="' + bandW.toFixed(1) + '" height="' + ih + '" fill="transparent"/>';
+    // clamp to the plot area — the SVG is overflow:visible for the end labels,
+    // so an unclamped first/last band would stick out past the page edge
+    const bx = Math.max(M.l, cx - bandW/2);
+    const bw = Math.min(W - M.r, cx + bandW/2) - bx;
+    svg += '<rect class="hband" data-i="' + i + '" x="' + bx.toFixed(1) + '" y="' + M.t +
+           '" width="' + Math.max(1, bw).toFixed(1) + '" height="' + ih + '" fill="transparent"/>';
   });
-  svg += '<line class="crosshair" x1="0" x2="0" y1="' + M.t + '" y2="' + (M.t+ih) + '" stroke="#8A93A8" stroke-width="1" stroke-dasharray="3 3" opacity="0" pointer-events="none"/>';
+  svg += '<line class="crosshair" x1="0" x2="0" y1="' + M.t + '" y2="' + (M.t+ih) + '" stroke="' + INK_2 + '" stroke-width="1" stroke-dasharray="3 3" opacity="0" pointer-events="none"/>';
   svg += '</svg>';
 
   // legend — always present for 2+ series
@@ -935,7 +1175,7 @@ function periodLabel(key, gran){
   const [y,m,d] = key.split('-');
   return d + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1];
 }
-function getGranularity(){ return document.getElementById('granularity').value; }
+
 
 /** rows -> {keys:[...], labels:[...], metricsByKey:{key:metrics}} */
 function trendSeries(rows){
@@ -959,24 +1199,41 @@ function trendSeries(rows){
 /* ==========================================================================
    11. TABLES
    ========================================================================== */
+/* `core: true` columns are the ones shown in Simple view */
 const COLS = [
-  {key:'__label__',          label:'',              isLabel:true},
-  {key:'Campaigns',          label:'Campaigns',     dec:0},
-  {key:'Sent',               label:'Sent',          dec:0},
-  {key:'Delivery_Rate_',     label:'Delivery %',    dec:2, isPct:true},
-  {key:'Impression_Rate_',   label:'Impr %',        dec:2, isPct:true},
-  {key:'Impressions',        label:'Impressions',   dec:0},
-  {key:'Unique_Impressions', label:'Uniq Impr',     dec:0},
-  {key:'Clicks',             label:'Clicks',        dec:0},
-  {key:'Unique_Clicks',      label:'Uniq Clicks',   dec:0},
-  {key:'Unique_CTR_',        label:'Uniq CTR %',    dec:3, isPct:true, bar:true},
-  {key:'CTR_',               label:'CTR %',         dec:3, isPct:true},
-  {key:'CT_Converted_Users', label:'CT Conv Users', dec:0},
-  {key:'VT_Converted_Users', label:'VT Conv Users', dec:0},
-  {key:'CT_Conversion_',     label:'CT Conv %',     dec:2, isPct:true},
-  {key:'Conv_Per_Sent_',     label:'Conv/Sent %',   dec:3, isPct:true},
-  {key:'VT_Conversion_',     label:'VT Conv %',     dec:4, isPct:true},
+  {key:'__label__',          label:'',                     isLabel:true,       core:true},
+  {key:'Campaigns',          label:'Campaigns',            dec:0,              core:true},
+  {key:'Sent',               label:'Sent',                 dec:0,              core:true},
+  {key:'Delivery_Rate_',     label:'Delivered',            dec:2, isPct:true,  core:true},
+  {key:'Impression_Rate_',   label:'Reached screen',       dec:2, isPct:true,  core:true},
+  {key:'Impressions',        label:'Times shown',          dec:0},
+  {key:'Unique_Impressions', label:'People who saw',       dec:0},
+  {key:'Clicks',             label:'Clicks',               dec:0},
+  {key:'Unique_Clicks',      label:'People who tapped',    dec:0,              core:true},
+  {key:'Unique_CTR_',        label:'Unique CTR',           dec:3, isPct:true, bar:true, core:true},
+  {key:'CTR_',               label:'CTR',                  dec:3, isPct:true},
+  {key:'CT_Converted_Users', label:'Converted (tapped)',   dec:0,              core:true},
+  {key:'VT_Converted_Users', label:'Converted (no tap)',   dec:0},
+  {key:'CT_Conversion_',     label:'Tap → convert',        dec:2, isPct:true},
+  {key:'Conv_Per_Sent_',     label:'Converted per send',   dec:3, isPct:true,  core:true},
+  {key:'VT_Conversion_',     label:'Saw → convert',        dec:4, isPct:true},
 ];
+
+/* Simple / Detailed is remembered across tabs and reloads */
+let TABLE_DETAIL = (function(){ try{ return localStorage.getItem('gyantv-table-detail') === '1'; }catch(e){ return false; } })();
+function activeCols(){ return TABLE_DETAIL ? COLS : COLS.filter(c => c.core); }
+function detailToggleHtml(){
+  return '<span class="seg" style="font-size:12px">' +
+    '<button type="button" class="detailBtn" data-detail="0" aria-pressed="' + (!TABLE_DETAIL) + '">Simple</button>' +
+    '<button type="button" class="detailBtn" data-detail="1" aria-pressed="' + (!!TABLE_DETAIL) + '">All columns</button></span>';
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.detailBtn');
+  if(!b) return;
+  TABLE_DETAIL = b.getAttribute('data-detail') === '1';
+  try{ localStorage.setItem('gyantv-table-detail', TABLE_DETAIL ? '1' : '0'); }catch(err){}
+  renderAll();
+});
 
 function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
   opts = opts || {};
@@ -991,7 +1248,7 @@ function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
       return sortDir * ((av||0) - (bv||0));
     });
     let html = '<thead><tr>';
-    COLS.forEach(c => {
+    activeCols().forEach(c => {
       const h = METRIC_HELP[c.key];
       html += '<th class="' + (c.key === sortKey ? 'sorted' : '') + '" data-key="' + c.key + '"' +
               (h ? ' data-tip-key="' + c.key + '"' : '') + '>' +
@@ -1001,7 +1258,7 @@ function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
     html += '</tr></thead><tbody>';
     sorted.forEach(r => {
       html += '<tr>';
-      COLS.forEach(c => {
+      activeCols().forEach(c => {
         if(c.isLabel){ html += '<td>' + esc(r.label) + '</td>'; }
         else if(c.bar){
           const v = r.metrics[c.key];
@@ -1018,7 +1275,7 @@ function buildTable(tableEl, rowDefs, benchmark, totalsRow, opts){
     html += '</tbody>';
     if(totalsRow){
       html += '<tfoot><tr>';
-      COLS.forEach(c => {
+      activeCols().forEach(c => {
         if(c.isLabel) html += '<td>Total / blended</td>';
         else if(c.isPct) html += '<td>' + pct(totalsRow[c.key], c.dec) + '</td>';
         else html += '<td>' + fmt(totalsRow[c.key], c.dec) + '</td>';
@@ -1073,7 +1330,7 @@ const CHART_METRICS = [
 ];
 const chartMetricState = {language:'Unique_CTR_', category:'Unique_CTR_', segment:'Unique_CTR_', time:'Unique_CTR_'};
 function metricPicker(which){
-  return '<select class="filter chart-metric" data-which="' + which + '">' +
+  return '<select class="ui chart-metric" data-which="' + which + '">' +
     CHART_METRICS.map(m => '<option value="' + m.key + '"' + (chartMetricState[which] === m.key ? ' selected' : '') + '>' +
       esc(m.label) + '</option>').join('') + '</select>';
 }
@@ -1091,32 +1348,41 @@ function minSentForPoint(){ return getCampaignType() === 'D0 Testing' ? 200 : 20
 /* ==========================================================================
    13. VIEWS
    ========================================================================== */
+/* one KPI tile: plain-English name, big number, plain-English hint */
+function tile(key, label, val, hint, cls, big){
+  return '<div class="tile' + (big ? ' big' : '') + '">' +
+    '<div class="lbl" data-tip-key="' + key + '">' + esc(label) + '</div>' +
+    '<div class="val ' + (cls || '') + '">' + val + '</div>' +
+    (hint ? '<div class="hint">' + hint + '</div>' : '') + '</div>';
+}
+
 function renderOverall(){
   const rows = filterRows();
   const o = aggregate(rows);
-  const K = (key, val, cls) =>
-    '<div class="kpi"><div class="lbl" data-tip-key="' + key + '">' + esc(METRIC_HELP[key][0]) + '</div>' +
-    '<div class="val ' + (cls||'') + '">' + val + '</div></div>';
+  const convertedUsers = o.CT_Converted_Users + o.VT_Converted_Users;
 
-  document.getElementById('kpi-overall-1').innerHTML =
-    K('Campaigns', fmt(o.Campaigns)) +
-    K('Sent', fmt(o.Sent), 'accent') +
-    K('Impressions', fmt(o.Impressions)) +
-    K('Unique_Impressions', fmt(o.Unique_Impressions)) +
-    K('Unique_Clicks', fmt(o.Unique_Clicks));
+  document.getElementById('kpi-hero').innerHTML =
+    tile('Sent', 'Notifications sent', fmt(o.Sent), 'Across ' + fmt(o.Campaigns) + ' campaigns', 'brand', true) +
+    tile('Unique_CTR_', 'Unique CTR', pct(o.Unique_CTR_, 3),
+         'Of the people who saw it, this many tapped', 'warn', true) +
+    tile('Conv_Per_Sent_', 'Converted users', fmt(convertedUsers),
+         pct(o.Conv_Per_Sent_, 3) + ' of everything sent', 'pos', true);
 
-  document.getElementById('kpi-overall-2').innerHTML =
-    K('Delivery_Rate_', pct(o.Delivery_Rate_), 'accent') +
-    K('Impression_Rate_', pct(o.Impression_Rate_)) +
-    '<div class="kpi"><div class="lbl" data-tip-key="Unique_CTR_">Unique CTR / CTR</div>' +
-    '<div class="val gold">' + pct(o.Unique_CTR_,3) + ' <small>/ ' + pct(o.CTR_,3) + '</small></div></div>' +
-    K('CT_Conversion_', pct(o.CT_Conversion_,2), 'accent') +
-    K('Conv_Per_Sent_', pct(o.Conv_Per_Sent_,3), 'accent');
+  document.getElementById('kpi-delivery').innerHTML =
+    tile('Delivery_Rate_', 'Delivery rate', pct(o.Delivery_Rate_), 'Sends that did not fail') +
+    tile('Impression_Rate_', 'Reached a screen', pct(o.Impression_Rate_), 'Sends that were actually shown') +
+    tile('Impressions', 'Times shown', fmt(o.Impressions), 'Including repeats') +
+    tile('Unique_Impressions', 'People who saw it', fmt(o.Unique_Impressions), 'Your real reach') +
+    tile('Campaigns', 'Campaigns', fmt(o.Campaigns), 'In this selection');
 
-  document.getElementById('kpi-overall-3').innerHTML =
-    K('CT_Converted_Users', fmt(o.CT_Converted_Users)) +
-    K('VT_Converted_Users', fmt(o.VT_Converted_Users)) +
-    K('VT_Conversion_', pct(o.VT_Conversion_,4));
+  document.getElementById('kpi-engagement').innerHTML =
+    tile('Unique_Clicks', 'People who tapped', fmt(o.Unique_Clicks), 'Distinct users') +
+    tile('CTR_', 'CTR', pct(o.CTR_, 3), 'Clicks ÷ sent') +
+    tile('CT_Converted_Users', 'Converted after tapping', fmt(o.CT_Converted_Users),
+         pct(o.CT_Conversion_, 2) + ' of people who tapped') +
+    tile('VT_Converted_Users', 'Converted without tapping', fmt(o.VT_Converted_Users),
+         'Saw it, did not tap, converted anyway') +
+    tile('Conv_Per_Sent_', 'Converted per send', pct(o.Conv_Per_Sent_, 3), 'The end-to-end number');
 
   // ---- trend charts ----
   const t = trendSeries(rows);
@@ -1317,22 +1583,39 @@ function renderAll(){
   renderCategory(o);
   renderSegment(o);
   renderTime(o);
-  document.getElementById('statusLine').textContent =
-    SOURCE_LABEL + ' · ' + typeLabel(getCampaignType()) + ' · ' + o.Campaigns.toLocaleString('en-IN') + ' campaigns in view';
+
+  ['language','category','segment','time'].forEach(v => {
+    const el = document.getElementById('detail-' + v);
+    if(el) el.innerHTML = detailToggleHtml();
+  });
+
+  const gran = getGranularity();
+  const sub = document.getElementById('trendSub');
+  if(sub) sub.textContent = 'One point per ' + (gran === 'day' ? 'day' : gran === 'month' ? 'month' : 'week') +
+    '. Quiet periods with very little volume are left out so they cannot spike the lines.';
+
+  const chip = document.getElementById('dataChip');
+  document.getElementById('dataChipText').innerHTML = DATA_IS_LOCAL
+    ? 'Your upload — <b>not published yet</b>'
+    : 'Last updated <b>' + esc(prettyDate(String(DATA_PUBLISHED).slice(0,10))) + '</b>';
+  chip.title = DATA_IS_LOCAL
+    ? 'You are looking at a CSV you uploaded in this browser. Nobody else can see it until it is published.'
+    : 'When data.js was last published to GitHub. The data runs up to ' +
+      prettyDate(String(DATA_THROUGH || DATA_PUBLISHED).slice(0,10)) + '.';
+  const th = document.getElementById('typeHelp');
+  if(th) th.textContent = TYPE_HELP[getCampaignType()] || '';
+  updateDateHelp();
+
   const {start, end} = getDateRange();
   document.getElementById('footNote').innerHTML =
-    'Showing ' + esc(typeLabel(getCampaignType())) + ' · ' + esc(start || 'earliest') + ' to ' + esc(end || 'latest') + '. ' +
-    'Conversion figures are Goal 1 only. Unique CTR = Unique Clicks ÷ Unique Impressions. ' +
-    'Delivery Rate = (Sent − Failed) ÷ Sent. CT Conversion = CT Converted Users ÷ Unique Clicks.<br>' +
-    'All parsing happens in your browser — nothing is uploaded anywhere.';
+    'Showing <b>' + esc(typeLabel(getCampaignType())) + '</b> from ' + esc(prettyDate(start)) + ' to ' + esc(prettyDate(end)) + '. ' +
+    'Conversion figures are Goal 1 only. Unique CTR = Unique Clicks ÷ Unique Impressions · ' +
+    'Delivery Rate = (Sent − Failed) ÷ Sent · Tap → convert = CT Converted Users ÷ Unique Clicks.<br>' +
+    'Everything is calculated in your browser — no data is uploaded anywhere.';
 }
 
 function setDateRangeFromData(){
-  const dates = PARSED.map(r => r.date).filter(Boolean).sort();
-  if(dates.length){
-    document.getElementById('startDate').value = dates[0];
-    document.getElementById('endDate').value   = dates[dates.length-1];
-  }
+  applyDatePreset(DATE_PRESET === 'custom' ? '7' : DATE_PRESET, true);
 }
 
 /* ==========================================================================
@@ -1393,10 +1676,18 @@ function readLocal(){
 }
 function clearLocal(){ try{ localStorage.removeItem(LS_KEY); } catch(e){} }
 
+/* When the data.js file was last published, and how far the data runs.
+   `published` is written at publish time; older files only carry `generated`
+   (the latest send date), which is the sensible fallback. */
+let DATA_PUBLISHED = '';     // when data.js was last written
+let DATA_THROUGH   = '';     // latest send date inside the data
+let DATA_IS_LOCAL  = false;  // showing an unpublished upload
+
 function publishedDataset(){
   const d = window.PUSH_DATA;
   if(!d || !d.rows || !d.rows.length) return null;
   return {cols:d.cols || CANON_COLS.slice(), rows:d.rows,
+          published:(d.published || d.generated || ''), through:(d.generated || ''),
           label:'Published data' + (d.generated ? ' · ' + d.generated : '')};
 }
 
@@ -1413,7 +1704,8 @@ function buildDataJsText(){
          '   Campaigns  : ' + CURRENT.rows.length + '\n' +
          '   Latest send: ' + (stamp || 'unknown') + ' */\n' +
          'window.PUSH_DATA = ' + JSON.stringify({
-           generated: stamp, source: CURRENT.label, cols: CURRENT.cols, rows: CURRENT.rows
+           generated: stamp, published: new Date().toISOString().slice(0,10),
+           source: CURRENT.label, cols: CURRENT.cols, rows: CURRENT.rows
          }) + ';\n';
 }
 
@@ -1517,6 +1809,10 @@ async function publishToGitHub(){
 
     // the admin should now see the same thing as everyone else
     clearLocal();
+    DATA_IS_LOCAL = false;
+    DATA_PUBLISHED = new Date().toISOString().slice(0,10);
+    DATA_THROUGH = latestSendDate();
+    renderAll();
     const b = document.getElementById('uploadBanner');
     b.className = 'banner'; b.innerHTML = '';
 
@@ -1532,7 +1828,7 @@ async function publishToGitHub(){
 
 function initAdminUI(){
   const admin = isAdmin();
-  ['uploadBtn','publishBtn','resetBtn'].forEach(id => { document.getElementById(id).hidden = !admin; });
+  document.getElementById('adminButtons').hidden = !admin;
   document.getElementById('adminPanel').hidden = !admin;
   if(!admin) return;
 
@@ -1595,8 +1891,54 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-['startDate','endDate','campaignTypeFilter','granularity','category-lang-filter','segment-lang-filter','time-lang-filter','time-cat-filter']
+['campaignTypeFilter','category-lang-filter','segment-lang-filter','time-lang-filter','time-cat-filter']
   .forEach(id => document.getElementById(id).addEventListener('change', renderAll));
+
+/* custom dates: switch the preset to Custom so the chips stay honest */
+['startDate','endDate'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+  DATE_PRESET = 'custom';
+  [].forEach.call(document.querySelectorAll('#datePresets button'), b => {
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-range') === 'custom'));
+  });
+  document.getElementById('dateCustom').hidden = false;
+  renderAll();
+}));
+
+document.getElementById('datePresets').addEventListener('click', e => {
+  const b = e.target.closest('button[data-range]');
+  if(b) applyDatePreset(b.getAttribute('data-range'));
+});
+
+/* ---------- trend granularity (segmented control replacing the old select) ---------- */
+let GRANULARITY = 'week';
+function getGranularity(){ return GRANULARITY; }
+document.getElementById('granularitySeg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-gran]');
+  if(!b) return;
+  GRANULARITY = b.getAttribute('data-gran');
+  [].forEach.call(document.querySelectorAll('#granularitySeg button'), x => {
+    x.setAttribute('aria-pressed', String(x.getAttribute('data-gran') === GRANULARITY));
+  });
+  renderAll();
+});
+
+/* ---------- light / dark ---------- */
+function applyTheme(mode){
+  document.documentElement.setAttribute('data-theme', mode);
+  document.getElementById('themeToggle').textContent = (mode === 'dark') ? '☀' : '☾';
+  document.getElementById('themeToggle').title = (mode === 'dark') ? 'Switch to light' : 'Switch to dark';
+  try{ localStorage.setItem('gyantv-theme', mode); }catch(e){}
+  refreshThemeColors();
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  if(PARSED.length) renderAll();                 // charts carry baked-in colours, so redraw
+});
+(function(){
+  let saved = null;
+  try{ saved = localStorage.getItem('gyantv-theme'); }catch(e){}
+  applyTheme(saved || 'dark');
+})();
 
 /* ---------- upload ---------- */
 document.getElementById('fileInput').addEventListener('change', function(e){
@@ -1616,6 +1958,7 @@ document.getElementById('fileInput').addEventListener('change', function(e){
       try{
         const table = parseCSV(String(reader.result));
         if(table.length < 2) throw new Error('the file has a header but no data rows.');
+        DATA_IS_LOCAL = true;
         loadDataset(table[0], table.slice(1), 'Uploaded: ' + file.name);
         const counts = {};
         PARSED.forEach(r => counts[r.class] = (counts[r.class]||0) + 1);
@@ -1648,6 +1991,7 @@ document.getElementById('resetBtn').addEventListener('click', function(){
   const pub = publishedDataset();
   const b = document.getElementById('uploadBanner');
   if(pub){
+    DATA_IS_LOCAL = false; DATA_PUBLISHED = pub.published; DATA_THROUGH = pub.through;
     loadDataset(pub.cols, pub.rows, pub.label);
     b.className = 'banner'; b.innerHTML = '';
   } else {
@@ -1664,12 +2008,14 @@ initAdminUI();
   const pub   = publishedDataset();
   try{
     if(local){
+      DATA_IS_LOCAL = true;
       loadDataset(local.cols, local.rows, local.label + ' (saved in this browser)');
       const b = document.getElementById('uploadBanner');
       b.className = 'banner show';
       b.innerHTML = 'Showing <b>your own saved upload</b> (' + esc(local.label) + '), not the published data. ' +
         'Click <b>Reset to published data</b> to go back to what everyone else sees.';
     } else if(pub){
+      DATA_IS_LOCAL = false; DATA_PUBLISHED = pub.published; DATA_THROUGH = pub.through;
       loadDataset(pub.cols, pub.rows, pub.label);
     } else {
       noDataMessage('No dataset found — data.js is missing or empty.');

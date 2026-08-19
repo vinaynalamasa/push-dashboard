@@ -149,7 +149,9 @@ const out = '/* GyanTV push dashboard — generated dataset. DO NOT EDIT BY HAND
   '   Latest send: ' + (latest || 'unknown') + '\n' +
   '   Regenerate : node tools/csv-to-data.mjs "<new export>.csv"  then commit + push. */\n' +
   'window.PUSH_DATA = ' + JSON.stringify({
-    generated: latest, source: path.basename(src), cols: CANON_COLS, rows
+    generated: latest,                                    // latest send date in the data
+    published: new Date().toISOString().slice(0, 10),     // when this file was written
+    source: path.basename(src), cols: CANON_COLS, rows
   }) + ';\n';
 
 const dest = path.join(REPO, 'data.js');
