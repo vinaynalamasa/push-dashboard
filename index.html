@@ -560,6 +560,9 @@ function num(v){
 /* ==========================================================================
    3. CAMPAIGN NAME PARSING
       Manual : DDMMYYYY_LANG_Segment_Category_Time_ContentSeriesID
+               (the date may have 7 digits — Hindi/Kannada/Telugu names drop the zero on days 1-9,
+                and a 7-digit date is ambiguous, so the NAME is never used for the date: the
+                "Campaign Sent Time" column always is)
       D0     : D0_LANG_Segment_Category_Time            (no date, no content id)
       Backend: gyantv-t<number>-cs<number>
       Others : everything else
@@ -659,14 +662,22 @@ function hourLabel(h){
   return hh + ' ' + ap;
 }
 
+/* some names arrive wrapped in literal quote marks ("1092026_KA_..._Marketing _1130AM_28855") */
+function cleanName(raw){
+  return String(raw == null ? '' : raw).trim()
+    .replace(/^["'\u201C\u201D]+|["'\u201C\u201D]+$/g,'').trim()
+    .replace(/^(?:duplicate|copy of|copy)\s*[-\u2013:]+\s*/i,'');      // "Duplicate - 24102026_KA_..." left by MoEngage's duplicate button
+}
+
 function classifyAndParse(rawName){
-  const name = String(rawName).trim();
+  const name = cleanName(rawName);
   const out = {name, class:'Others', date:null, language:null, segment:null, category:null, hour:null, contentId:null};
 
   // ---- backend automated: gyantv-t49702-cs28405 ----
   if(/^gyantv[-_]t\d+[-_]cs\d+$/i.test(name)){ out.class = 'Backend Automated'; return out; }
 
-  const parts = name.split('_');
+  // trim every token and drop blanks: names contain "__", a trailing "_", and " 33347"
+  const parts = name.split('_').map(t => t.trim()).filter(t => t !== '');
 
   // ---- D0 tests: D0_<LANG>_<segment…>_<category>_<time>[_<contentId>] ----
   if(/^d0$/i.test(parts[0])){
@@ -687,7 +698,10 @@ function classifyAndParse(rawName){
   //      tolerates DDMMYYYY or YYYYMMDD, 2-letter codes or spelled-out languages,
   //      a missing segment, and a missing trailing content-series id.
   const dateVal = parseDateToken(parts[0]);
-  if(dateVal && parts.length >= 4){
+  // The name's date is never used for filtering (Sent Time is), so it only has to LOOK like a date.
+  // That covers 7 digits (day without its zero) and typos such as 13021016 / 31202026.
+  const dateShaped = !!dateVal || /^\d{6,8}$/.test(parts[0]);
+  if(dateShaped && parts.length >= 4){
     let p = parts.slice();
     let contentId = null;
     if(p.length >= 5 && /^\d+$/.test(p[p.length-1]) && !parseTimeToken(p[p.length-1])){ contentId = p.pop(); }
@@ -752,7 +766,7 @@ function buildParsedFromRows(cols, rows){
   const out = [];
   for(const row of rows){
     const rawName = map.name >= 0 ? row[map.name] : '';
-    const name = String(rawName == null ? '' : rawName).trim();
+    const name = cleanName(rawName);
     if(!name) continue;
     const p = classifyAndParse(name);
     const ts = String(g(row,'sentTime') == null ? '' : g(row,'sentTime'));
@@ -789,7 +803,9 @@ function aggregate(rows){
   return {
     Campaigns: rows.length,
     Sent: sent,
-    Delivery_Rate_:   sent   ? (sent - failed) / sent : 0,
+    /* Failed is NOT a subset of Sent (Attempted = Sent + Failed), so the denominator is every push
+       we tried to send. (Sent - Failed) / Sent goes negative whenever Failed > Sent. */
+    Delivery_Rate_:   (sent + failed) ? sent / (sent + failed) : 0,
     Impression_Rate_: sent   ? impr   / sent    : 0,
     Impressions: impr, Unique_Impressions: uimpr, Clicks: clicks, Unique_Clicks: uclicks,
     Unique_CTR_:      uimpr  ? uclicks / uimpr  : 0,
@@ -806,8 +822,8 @@ const METRIC_HELP = {
   __label__:          ['Row',                'The thing this row is measuring — a language, a category, a segment or an hour of the day.'],
   Campaigns:          ['Campaigns',          'How many separate push campaigns are inside this row. A small number here means the rates next to it are fragile — treat under ~10 campaigns as directional only.'],
   Sent:               ['Sent',               'Notifications MoEngage handed to Google FCM. This is your reach, not your audience size: one user gets counted once per campaign.'],
-  Delivery_Rate_:     ['Delivery Rate',      'Of everything we sent, the share that did NOT come back as a failure. <code>(Sent − Failed) ÷ Sent</code>. Below ~98% usually means dead or expired device tokens.'],
-  Impression_Rate_:   ['Impression Rate',    'Of everything we sent, the share that actually appeared on a phone screen. <code>Impressions ÷ Sent</code>. The gap between Delivery Rate and this is phones that never surfaced the notification — killed apps, battery savers, notifications turned off.'],
+  Delivery_Rate_:     ['Delivery Rate',      'Of every push MoEngage tried to send, the share it actually handed to Google FCM. <code>Sent ÷ (Sent + Failed)</code>. Failed pushes are not counted inside Sent, so a low number means attempts are failing outright — usually dead or expired device tokens.'],
+  Impression_Rate_:   ['Impression Rate',    'Of everything we sent, the share that actually appeared on a phone screen. <code>Impressions ÷ Sent</code>. If Delivery Rate is healthy but this is low, the pushes were handed over but phones never surfaced them — killed apps, battery savers, notifications turned off.'],
   Impressions:        ['Impressions',        'Number of times a notification was actually displayed on a device.'],
   Unique_Impressions: ['Unique Impressions', 'Number of distinct users who actually saw a notification. This is your real reached audience.'],
   Clicks:             ['Clicks',             'Total taps on the notification, including the same user tapping twice.'],
@@ -1400,7 +1416,7 @@ function renderOverall(){
 
   drawChart(document.getElementById('chart-overall-delivery'), {
     title:'Delivery health',
-    subtitle:'Delivery Rate = share of sends that did not fail. Impression Rate = share that actually reached a screen.',
+    subtitle:'Delivery Rate = share of attempted pushes that were sent (not failed). Impression Rate = share of sent pushes that actually reached a screen.',
     labels:t.labels, meta:meta,
     series:[
       {name:'Delivery Rate',   color:SERIES_COLORS[4], points:pick('Delivery_Rate_')},
@@ -1595,7 +1611,7 @@ function renderAll(){
   document.getElementById('footNote').innerHTML =
     'Showing <b>' + esc(typeLabel(getCampaignType())) + '</b> from ' + esc(prettyDate(start)) + ' to ' + esc(prettyDate(end)) + '. ' +
     'Conversion figures are Goal 1 only. Unique CTR = Unique Clicks ÷ Unique Impressions · ' +
-    'Delivery Rate = (Sent − Failed) ÷ Sent · Tap → convert = CT Converted Users ÷ Unique Clicks.<br>' +
+    'Delivery Rate = Sent ÷ (Sent + Failed) · Tap → convert = CT Converted Users ÷ Unique Clicks.<br>' +
     'Everything is calculated in your browser — no data is uploaded anywhere.';
 }
 
